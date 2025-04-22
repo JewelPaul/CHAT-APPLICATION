@@ -12,6 +12,9 @@ ChatWave is a professional, beautiful, and fully functional real-time chat appli
 - **Image Sharing**: Send and receive images in your chats
 - **Connection Management**: Connect with multiple users simultaneously
 - **Privacy-Focused**: No chat history stored on servers
+- **Enhanced Error Handling**: Improved connection error handling with retry functionality
+- **Automatic Reconnection**: Automatically attempts to reconnect when connection is lost
+- **GitHub Pages Compatible**: Works seamlessly when deployed to GitHub Pages
 
 ## Deployment Instructions
 
@@ -33,11 +36,27 @@ ChatWave is a professional, beautiful, and fully functional real-time chat appli
 
 To deploy this application on GitHub Pages:
 
-1. Push the entire project to your GitHub repository
-2. Enable GitHub Pages in your repository settings
-3. Set the source to the branch containing your code
+1. Update the configuration in the `deploy.js` script:
+   ```javascript
+   const config = {
+       githubUsername: 'YourGitHubUsername',
+       repoName: 'chatwave',
+       socketServerUrl: 'https://your-server-url.herokuapp.com',
+       useCustomDomain: false,
+       customDomain: 'chat.example.com'
+   };
+   ```
 
-Note: Since GitHub Pages doesn't support server-side code, you'll need to deploy the server component separately on a service like Heroku, Render, or Glitch.
+2. Run the deployment script to prepare the files:
+   ```
+   node deploy.js
+   ```
+
+3. Push the entire project to your GitHub repository
+4. Enable GitHub Pages in your repository settings
+5. Set the source to the branch containing your code
+
+Note: Since GitHub Pages doesn't support server-side code, you'll need to deploy the server component separately on a service like Heroku, Render, or Glitch. The `deploy.js` script helps configure the client-side code to connect to your deployed server.
 
 ### Server Deployment (Heroku, Render, etc.)
 
@@ -59,11 +78,22 @@ Note: Since GitHub Pages doesn't support server-side code, you'll need to deploy
 
 If you experience connection issues:
 
-1. Make sure both users are online and have the application open
-2. Verify that the unique codes are entered correctly
-3. Try refreshing the page and generating a new code
-4. Check if your network allows WebSocket connections
-5. If using a VPN, try disabling it temporarily
+1. If you see "Connection error: Unknown error" messages, use the "Retry Connection" button
+2. Make sure both users are online and have the application open
+3. Verify that the unique codes are entered correctly
+4. Try refreshing the page and generating a new code
+5. Check if your network allows WebSocket connections
+6. If using a VPN, try disabling it temporarily
+7. Ensure the Socket.io server is running and accessible
+
+### Fixing "Connection error: Unknown error"
+
+This application includes enhanced error handling and automatic reconnection features. If you encounter connection errors:
+
+1. Click the "Retry Connection" button that appears with the error message
+2. Check your internet connection
+3. If the error persists, try refreshing the page
+4. For server deployment issues, make sure the Socket.io server URL in `js/connection-handler.js` is correctly set
 
 ## License
 

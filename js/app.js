@@ -1259,6 +1259,10 @@ function handleConnectionError(event) {
             notificationMessage = errorMessage; // Use the detailed message from the socket connection
         } else if (errorMessage.includes('taking too long')) {
             notificationMessage = `Connection to ${remoteCode} is taking too long. The user may be on a slow network or unavailable.`;
+        } else if (errorMessage.includes('Failed to connect to server')) {
+            notificationMessage = `Server connection failed. Please check your internet connection and try again.`;
+        } else if (errorMessage.includes('xhr poll error')) {
+            notificationMessage = `Server connection failed. Please check your internet connection.`;
         } else {
             notificationMessage = `Connection error: ${errorMessage}`;
         }
@@ -1270,10 +1274,48 @@ function handleConnectionError(event) {
     elements.connectingStatus.classList.add('hidden');
     showNotification(notificationMessage, 'error');
 
-    // Auto-hide the error after 8 seconds (increased from 5)
+    // Create a retry button for connection errors
+    const retryButton = document.createElement('button');
+    retryButton.className = 'btn btn-primary retry-connection-btn';
+    retryButton.innerHTML = '<i class="fas fa-sync-alt"></i> Retry Connection';
+
+    // Add the retry button to the error message container
+    const errorContainer = elements.connectionError;
+
+    // Remove any existing retry buttons
+    const existingRetryButton = errorContainer.querySelector('.retry-connection-btn');
+    if (existingRetryButton) {
+        existingRetryButton.remove();
+    }
+
+    // Add click handler based on the type of error
+    if (notificationMessage.includes('server') || notificationMessage.includes('Server')) {
+        // Server connection error - retry the socket connection
+        retryButton.onclick = () => {
+            showNotification('Reconnecting to server...', 'info');
+            // Force a page reload to reconnect
+            window.location.reload();
+        };
+    } else if (remoteCode) {
+        // Peer connection error - retry connecting to the peer
+        retryButton.onclick = () => {
+            showNotification(`Retrying connection to ${remoteCode}...`, 'info');
+            connectToPeer(remoteCode);
+        };
+    } else {
+        // Generic error - just reload the page
+        retryButton.onclick = () => {
+            window.location.reload();
+        };
+    }
+
+    // Add the retry button to the error container
+    errorContainer.appendChild(retryButton);
+
+    // Auto-hide the error after 15 seconds (increased from 8)
     setTimeout(() => {
         elements.connectionError.classList.add('hidden');
-    }, 8000);
+    }, 15000);
 
     // If we have a remote code, disconnect from that peer
     if (remoteCode && state.connections.has(remoteCode)) {

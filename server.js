@@ -5,7 +5,17 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// Configure Socket.io with CORS for GitHub Pages
+const io = new Server(server, {
+  cors: {
+    origin: '*', // Allow all origins for now
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  pingTimeout: 60000, // Increase ping timeout to 60 seconds
+  pingInterval: 25000 // Ping every 25 seconds
+});
 
 // Serve static files
 app.use(express.static(path.join(__dirname)));

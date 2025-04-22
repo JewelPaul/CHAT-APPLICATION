@@ -30,8 +30,31 @@ class SocketConnection {
     setupSocketConnection() {
         console.log('Setting up Socket.io connection');
 
-        // Connect to the Socket.io server
-        this.socket = io();
+        // Connect to the Socket.io server with better options
+        try {
+            // Determine the server URL based on the environment
+            let serverUrl;
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                serverUrl = window.location.origin;
+            } else {
+                // When deployed to GitHub Pages, use a fallback server
+                // This will be updated during deployment
+                serverUrl = 'https://jewel-chat-server.herokuapp.com';
+            }
+
+            console.log(`Connecting to Socket.io server at ${serverUrl}`);
+
+            this.socket = io(serverUrl, {
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                timeout: 10000
+            });
+        } catch (error) {
+            console.error('Error initializing Socket.io connection:', error);
+            this.handleError(new Error(`Failed to initialize Socket.io: ${error.message}`));
+        }
 
         // Set up event listeners
         this.socket.on('connect', () => {
@@ -107,7 +130,57 @@ class SocketConnection {
 
         this.socket.on('connect_error', (error) => {
             console.error('Connection error:', error);
-            this.handleError(new Error('Failed to connect to server'));
+
+            // Provide more specific error messages
+            let errorMessage = 'Failed to connect to server';
+
+            if (error && error.message) {
+                if (error.message.includes('xhr poll error')) {
+                    errorMessage = 'Server connection failed. Please check your internet connection.';
+                } else if (error.message.includes('timeout')) {
+                    errorMessage = 'Connection timed out. Server might be busy or unreachable.';
+                } else {
+                    errorMessage = `Connection error: ${error.message}`;
+                }
+            }
+
+            this.handleError(new Error(errorMessage));
+
+            // Dispatch a custom event for the connection handler
+            document.dispatchEvent(new CustomEvent('socket-connection-error', {
+                detail: { error: errorMessage }
+            }));
+        });
+
+        // Add reconnection event handlers
+        this.socket.on('reconnect_attempt', (attemptNumber) => {
+            console.log(`Reconnection attempt ${attemptNumber}`);
+            document.dispatchEvent(new CustomEvent('socket-reconnect-attempt', {
+                detail: { attemptNumber }
+            }));
+        });
+
+        this.socket.on('reconnect', (attemptNumber) => {
+            console.log(`Reconnected after ${attemptNumber} attempts`);
+            document.dispatchEvent(new CustomEvent('socket-reconnected', {
+                detail: { attemptNumber }
+            }));
+
+            // Re-register with the server after reconnection
+            this.register();
+        });
+
+        this.socket.on('reconnect_error', (error) => {
+            console.error('Reconnection error:', error);
+            document.dispatchEvent(new CustomEvent('socket-reconnect-error', {
+                detail: { error }
+            }));
+        });
+
+        this.socket.on('reconnect_failed', () => {
+            console.error('Failed to reconnect after all attempts');
+            document.dispatchEvent(new CustomEvent('socket-reconnect-failed'));
+            this.handleError(new Error('Failed to connect to the server after multiple attempts. Please check your internet connection and try again.'));
         });
 
         this.socket.on('disconnect', () => {

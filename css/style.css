@@ -1238,6 +1238,33 @@ ul {
 .connection-error {
     background-color: var(--danger-color);
     color: white;
+    flex-direction: column;
+}
+
+.retry-connection-btn {
+    background-color: white;
+    color: var(--danger-color);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+.retry-connection-btn:hover {
+    background-color: #f9fafb;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.retry-connection-btn i {
+    font-size: 0.875rem;
 }
 
 /* Animations */
