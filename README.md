@@ -83,3 +83,7 @@ The system implements a mutual consent model where connection requests require e
 ---
 
 📢 **ChatWave** represents a significant advancement in web-based communication technology, combining accessibility with security in a professional package. Recent platform enhancements have substantially improved connection reliability and error recovery capabilities, particularly for distributed hosting environments such as GitHub Pages.
+
+DEVELOPED BY
+
+JEWEL GABRIEL PAUL
