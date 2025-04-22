@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact - ChatWave</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <meta name="description" content="Contact information for ChatWave - A student project creating a secure, real-time chat application.">
+    <style>
+        .page-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .page-header .logo {
+            margin-bottom: 1rem;
+        }
+
+        .page-content {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 2rem;
+        }
+
+        .page-content h2 {
+            color: var(--primary-color);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .page-content h2:first-child {
+            margin-top: 0;
+        }
+
+        .page-content p {
+            margin-bottom: 1rem;
+            line-height: 1.7;
+        }
+
+        .page-footer {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .page-nav {
+            display: flex;
+            justify-content: center;
+            margin-top: 2rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .page-nav a {
+            color: var(--primary-color);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            transition: var(--transition);
+        }
+
+        .page-nav a:hover {
+            background-color: rgba(79, 70, 229, 0.1);
+        }
+
+        .student-project-badge {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            display: inline-block;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+        }
+
+        .contact-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .contact-method {
+            background-color: #f9fafb;
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: var(--transition);
+        }
+
+        .contact-method:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .contact-method i {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .contact-method h3 {
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        .contact-method p {
+            color: var(--gray-color);
+            margin-bottom: 1rem;
+        }
+
+        .contact-method a {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .contact-method a:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .faq-section {
+            margin-top: 3rem;
+        }
+
+        .faq-item {
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 1.5rem;
+        }
+
+        .faq-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .faq-question {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--dark-color);
+        }
+
+        .faq-answer {
+            color: var(--gray-color);
+        }
+
+        .student-info {
+            background-color: #f0f9ff;
+            border-left: 4px solid var(--primary-color);
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border-radius: 0 var(--border-radius) var(--border-radius) 0;
+        }
+
+        .student-info h3 {
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        @media (max-width: 768px) {
+            .page-container {
+                padding: 1rem;
+            }
+
+            .page-content {
+                padding: 1.5rem;
+            }
+
+            .contact-methods {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <header class="page-header">
+            <div class="logo">
+                <i class="fas fa-comments"></i>
+                <h1>ChatWave</h1>
+            </div>
+            <p class="tagline">Contact Us</p>
+            <div class="student-project-badge">
+                <i class="fas fa-graduation-cap"></i> Student Project
+            </div>
+        </header>
+
+        <main class="page-content">
+            <h2>Get in Touch</h2>
+            <p>Thank you for your interest in ChatWave! As this is a student project developed as part of the CODTECH PROJECTS internship program, we have a simplified contact process. Please find below the best ways to reach out regarding this project.</p>
+
+            <div class="student-info">
+                <h3>Student Project Information</h3>
+                <p>ChatWave was developed by Jewel Gabriel Paul as part of the CODTECH PROJECTS internship program. This project demonstrates proficiency in web development, real-time communication technologies, and user interface design.</p>
+                <p>The primary purpose of this project is educational, serving as a portfolio piece and a demonstration of technical skills.</p>
+            </div>
+
+            <div class="contact-methods">
+                <div class="contact-method">
+                    <i class="fab fa-github"></i>
+                    <h3>GitHub</h3>
+                    <p>View the project repository, report issues, or contribute to the codebase.</p>
+                    <a href="https://github.com/JewelPaul" target="_blank">Visit GitHub Profile</a>
+                </div>
+
+                <div class="contact-method">
+                    <i class="fab fa-instagram"></i>
+                    <h3>Instagram</h3>
+                    <p>Follow for updates and connect regarding the project or future collaborations.</p>
+                    <a href="https://instagram.com/pauljewel25" target="_blank">Follow on Instagram</a>
+                </div>
+
+                <div class="contact-method">
+                    <i class="fas fa-code-branch"></i>
+                    <h3>Project Repository</h3>
+                    <p>Explore the code, documentation, and development history.</p>
+                    <a href="https://github.com/JewelPaul/chatwave" target="_blank">View Repository</a>
+                </div>
+            </div>
+
+            <p>Please note that as this is a student project, response times may vary. The most effective way to reach out is through GitHub issues if you encounter any technical problems or have suggestions for improvement.</p>
+
+            <h2>Frequently Asked Questions</h2>
+            <div class="faq-section">
+                <div class="faq-item">
+                    <p class="faq-question">Is ChatWave a commercial product?</p>
+                    <p class="faq-answer">No, ChatWave is an educational project developed as part of the CODTECH PROJECTS internship program. It is not intended for commercial use and is provided as-is for demonstration and learning purposes.</p>
+                </div>
+
+                <div class="faq-item">
+                    <p class="faq-question">Can I use ChatWave for my own projects?</p>
+                    <p class="faq-answer">Yes, the code is available on GitHub and can be used for educational purposes. If you wish to use it for other purposes, please reach out through GitHub to discuss specific arrangements.</p>
+                </div>
+
+                <div class="faq-item">
+                    <p class="faq-question">Is my data safe when using ChatWave?</p>
+                    <p class="faq-answer">ChatWave is designed with privacy in mind. All messages are encrypted end-to-end, and no data is stored on any server. However, as this is a student project, it may not have undergone the same rigorous security testing as commercial applications. Please exercise caution when sharing sensitive information.</p>
+                </div>
+
+                <div class="faq-item">
+                    <p class="faq-question">How can I report a bug or suggest a feature?</p>
+                    <p class="faq-answer">The best way to report bugs or suggest features is through GitHub issues. This allows for proper tracking and discussion of the issue or suggestion.</p>
+                </div>
+
+                <div class="faq-item">
+                    <p class="faq-question">Can I contribute to the project?</p>
+                    <p class="faq-answer">Contributions are welcome! Please fork the repository on GitHub, make your changes, and submit a pull request. Be sure to follow the contribution guidelines outlined in the repository.</p>
+                </div>
+
+                <div class="faq-item">
+                    <p class="faq-question">Is there a mobile app version of ChatWave?</p>
+                    <p class="faq-answer">Currently, ChatWave is a web application optimized for both desktop and mobile browsers. There are no native mobile apps available at this time, but the web version is fully responsive and works well on mobile devices.</p>
+                </div>
+            </div>
+
+            <h2>Academic Context</h2>
+            <p>ChatWave was developed as part of the CODTECH PROJECTS internship program, Task 2, which required the creation of a real-time chat application using WebSocket or Socket.io. The project demonstrates proficiency in:</p>
+
+            <ul>
+                <li>Frontend development with HTML, CSS, and JavaScript</li>
+                <li>Implementation of real-time communication using Socket.io</li>
+                <li>Application of encryption techniques for secure messaging</li>
+                <li>Responsive design principles for cross-device compatibility</li>
+                <li>User experience design for intuitive interaction</li>
+            </ul>
+
+            <p>The project serves as a portfolio piece and a demonstration of technical skills acquired during the internship program.</p>
+        </main>
+
+        <nav class="page-nav">
+            <a href="index.html">Home</a>
+            <a href="about.html">About</a>
+            <a href="terms.html">Terms of Service</a>
+            <a href="privacy.html">Privacy Policy</a>
+            <a href="contact.html">Contact</a>
+        </nav>
+
+        <footer class="page-footer">
+            <p>&copy; 2025 ChatWave - A Student Project | All Rights Reserved</p>
+        </footer>
+    </div>
+</body>
+</html>

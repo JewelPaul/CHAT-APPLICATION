@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About ChatWave - Secure Instant Messaging</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <meta name="description" content="Learn about ChatWave - A student project creating a secure, real-time chat application with no sign-up required.">
+    <style>
+        .page-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .page-header .logo {
+            margin-bottom: 1rem;
+        }
+        
+        .page-content {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 2rem;
+        }
+        
+        .page-content h2 {
+            color: var(--primary-color);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+        
+        .page-content h2:first-child {
+            margin-top: 0;
+        }
+        
+        .page-content p {
+            margin-bottom: 1rem;
+            line-height: 1.7;
+        }
+        
+        .page-content ul {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+        
+        .page-content li {
+            margin-bottom: 0.5rem;
+            line-height: 1.7;
+        }
+        
+        .page-footer {
+            margin-top: 2rem;
+            text-align: center;
+        }
+        
+        .page-nav {
+            display: flex;
+            justify-content: center;
+            margin-top: 2rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .page-nav a {
+            color: var(--primary-color);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            transition: var(--transition);
+        }
+        
+        .page-nav a:hover {
+            background-color: rgba(79, 70, 229, 0.1);
+        }
+        
+        .student-project-badge {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            display: inline-block;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .feature-item {
+            background-color: #f9fafb;
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .feature-item i {
+            color: var(--primary-color);
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .feature-item h3 {
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+        
+        .team-section {
+            margin: 3rem 0;
+        }
+        
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .team-member {
+            text-align: center;
+        }
+        
+        .team-member img {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 1rem;
+            border: 3px solid white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .team-member h3 {
+            margin-bottom: 0.25rem;
+        }
+        
+        .team-member p {
+            color: var(--gray-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .social-links a {
+            color: var(--gray-color);
+            transition: var(--transition);
+        }
+        
+        .social-links a:hover {
+            color: var(--primary-color);
+        }
+        
+        @media (max-width: 768px) {
+            .page-container {
+                padding: 1rem;
+            }
+            
+            .page-content {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <header class="page-header">
+            <div class="logo">
+                <i class="fas fa-comments"></i>
+                <h1>ChatWave</h1>
+            </div>
+            <p class="tagline">Connect instantly with anyone, anywhere</p>
+            <div class="student-project-badge">
+                <i class="fas fa-graduation-cap"></i> Student Project
+            </div>
+        </header>
+        
+        <main class="page-content">
+            <h2>About ChatWave</h2>
+            <p>ChatWave is a comprehensive academic project developed as part of the CODTECH PROJECTS internship program. This real-time chat application demonstrates the implementation of modern web technologies, focusing on secure, private, and efficient communication protocols.</p>
+            
+            <p>As a student-led initiative, ChatWave serves as both a practical learning experience and a demonstration of applied web development skills. The project emphasizes clean code architecture, responsive design principles, and secure communication practices.</p>
+            
+            <h2>Project Overview</h2>
+            <p>ChatWave was developed to fulfill the requirements of the CODTECH PROJECTS internship Task 2, which specified the creation of a real-time chat application using WebSocket or Socket.io technology. The project demonstrates proficiency in:</p>
+            
+            <ul>
+                <li><strong>Frontend Development:</strong> HTML5, CSS3, and JavaScript (ES6+)</li>
+                <li><strong>Real-time Communication:</strong> Implementation of Socket.io for instant messaging</li>
+                <li><strong>Security Practices:</strong> End-to-end encryption using AES algorithms</li>
+                <li><strong>Responsive Design:</strong> Mobile-first approach ensuring compatibility across all devices</li>
+                <li><strong>User Experience:</strong> Intuitive interface with real-time feedback and notifications</li>
+            </ul>
+            
+            <h2>Key Features</h2>
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <i class="fas fa-bolt"></i>
+                    <h3>Real-Time Messaging</h3>
+                    <p>Instant message delivery with no perceptible delay, providing a seamless conversation experience.</p>
+                </div>
+                
+                <div class="feature-item">
+                    <i class="fas fa-lock"></i>
+                    <h3>End-to-End Encryption</h3>
+                    <p>All messages are encrypted using advanced AES encryption, ensuring only intended recipients can read them.</p>
+                </div>
+                
+                <div class="feature-item">
+                    <i class="fas fa-user-secret"></i>
+                    <h3>No Sign-Up Required</h3>
+                    <p>Start chatting immediately without creating accounts or providing personal information.</p>
+                </div>
+                
+                <div class="feature-item">
+                    <i class="fas fa-code"></i>
+                    <h3>Unique Code System</h3>
+                    <p>Connect with others using automatically generated unique codes, simplifying the connection process.</p>
+                </div>
+                
+                <div class="feature-item">
+                    <i class="fas fa-mobile-alt"></i>
+                    <h3>Responsive Design</h3>
+                    <p>Optimized for all devices from smartphones to desktop computers with adaptive layouts.</p>
+                </div>
+                
+                <div class="feature-item">
+                    <i class="fas fa-image"></i>
+                    <h3>Media Support</h3>
+                    <p>Share images and customize your profile with avatar uploads for personalized communication.</p>
+                </div>
+            </div>
+            
+            <h2>Educational Purpose</h2>
+            <p>This project serves as an educational tool demonstrating the practical application of web development concepts. It showcases:</p>
+            
+            <ul>
+                <li>Implementation of real-time communication protocols</li>
+                <li>Application of encryption techniques for secure messaging</li>
+                <li>Development of responsive user interfaces</li>
+                <li>Management of user connections and session states</li>
+                <li>Integration of modern JavaScript libraries and APIs</li>
+            </ul>
+            
+            <p>As an academic exercise, ChatWave prioritizes learning outcomes and demonstration of technical skills over commercial viability. The application is intended for educational purposes and serves as a portfolio piece for the student developer.</p>
+            
+            <h2>Technology Stack</h2>
+            <p>ChatWave is built using the following technologies:</p>
+            
+            <ul>
+                <li><strong>Frontend:</strong> HTML5, CSS3, JavaScript (ES6+)</li>
+                <li><strong>Real-time Communication:</strong> Socket.io</li>
+                <li><strong>Encryption:</strong> CryptoJS (AES)</li>
+                <li><strong>UI Components:</strong> Custom CSS with Flexbox and Grid</li>
+                <li><strong>Icons:</strong> Font Awesome</li>
+                <li><strong>Typography:</strong> Google Fonts (Poppins)</li>
+                <li><strong>Development Tools:</strong> Git, GitHub</li>
+            </ul>
+            
+            <h2>Project Development</h2>
+            <p>The development of ChatWave followed a structured approach:</p>
+            
+            <ol>
+                <li><strong>Requirement Analysis:</strong> Understanding the project specifications and defining the scope</li>
+                <li><strong>Design Phase:</strong> Creating wireframes and designing the user interface</li>
+                <li><strong>Implementation:</strong> Coding the frontend and implementing Socket.io for real-time communication</li>
+                <li><strong>Testing:</strong> Ensuring functionality across different browsers and devices</li>
+                <li><strong>Documentation:</strong> Creating comprehensive documentation for the project</li>
+            </ol>
+            
+            <p>Throughout the development process, emphasis was placed on writing clean, maintainable code and implementing best practices for web development.</p>
+            
+            <h2>Future Enhancements</h2>
+            <p>While ChatWave fulfills all the requirements of the internship task, several enhancements could be implemented in future iterations:</p>
+            
+            <ul>
+                <li>Implementation of a backend server for persistent connections</li>
+                <li>Addition of group chat functionality</li>
+                <li>Integration of voice and video calling features</li>
+                <li>Implementation of file sharing capabilities</li>
+                <li>Development of mobile applications using frameworks like React Native</li>
+            </ul>
+            
+            <p>These potential enhancements represent opportunities for continued learning and development beyond the scope of the current project.</p>
+            
+            <h2>Acknowledgments</h2>
+            <p>Special thanks to CODTECH SOLUTIONS for providing the opportunity to work on this project as part of their internship program. The guidance and support received throughout the development process have been invaluable for the educational experience.</p>
+        </main>
+        
+        <nav class="page-nav">
+            <a href="index.html">Home</a>
+            <a href="about.html">About</a>
+            <a href="terms.html">Terms of Service</a>
+            <a href="privacy.html">Privacy Policy</a>
+            <a href="contact.html">Contact</a>
+        </nav>
+        
+        <footer class="page-footer">
+            <p>&copy; 2025 ChatWave - A Student Project | All Rights Reserved</p>
+        </footer>
+    </div>
+</body>
+</html>
