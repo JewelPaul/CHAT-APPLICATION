@@ -29,7 +29,71 @@ const state = {
     pendingRequest: null,
 
     // Message history (in-memory only, not persisted)
-    messages: new Map()
+    messages: new Map(),
+
+    // Encryption keys for each connection
+    encryptionKeys: new Map()
+};
+
+/**
+ * Encryption utilities using CryptoJS
+ */
+const EncryptionUtils = {
+    /**
+     * Generate a random encryption key
+     * @returns {string} A random encryption key
+     */
+    generateKey() {
+        return CryptoJS.lib.WordArray.random(256/8).toString();
+    },
+
+    /**
+     * Encrypt a message using AES encryption
+     * @param {string} message - The message to encrypt
+     * @param {string} key - The encryption key
+     * @returns {string} The encrypted message
+     */
+    encrypt(message, key) {
+        try {
+            const encrypted = CryptoJS.AES.encrypt(message, key).toString();
+            return encrypted;
+        } catch (error) {
+            console.error('Encryption error:', error);
+            throw new Error('Failed to encrypt message');
+        }
+    },
+
+    /**
+     * Decrypt a message using AES decryption
+     * @param {string} encryptedMessage - The encrypted message
+     * @param {string} key - The encryption key
+     * @returns {string} The decrypted message
+     */
+    decrypt(encryptedMessage, key) {
+        try {
+            const decrypted = CryptoJS.AES.decrypt(encryptedMessage, key);
+            const message = decrypted.toString(CryptoJS.enc.Utf8);
+            if (!message) {
+                throw new Error('Failed to decrypt message - invalid key or corrupted data');
+            }
+            return message;
+        } catch (error) {
+            console.error('Decryption error:', error);
+            throw new Error('Failed to decrypt message');
+        }
+    },
+
+    /**
+     * Generate a shared encryption key from two unique codes
+     * @param {string} code1 - First unique code
+     * @param {string} code2 - Second unique code
+     * @returns {string} The shared encryption key
+     */
+    generateSharedKey(code1, code2) {
+        // Create a deterministic key by combining and hashing the codes
+        const combined = [code1, code2].sort().join('-');
+        return CryptoJS.SHA256(combined).toString();
+    }
 };
 
 // DOM Elements
@@ -599,6 +663,11 @@ function connectToPeer(code) {
                     connection
                 });
 
+                // Generate and store encryption key for this connection
+                const encryptionKey = EncryptionUtils.generateSharedKey(state.user.uniqueCode, code);
+                state.encryptionKeys.set(code, encryptionKey);
+                console.log(`Generated encryption key for ${code}`);
+
                 // Update the UI
                 updateConnectionsList();
 
@@ -654,6 +723,9 @@ function disconnectPeer(code) {
     // Remove the connection from our state
     state.connections.delete(code);
 
+    // Remove the encryption key
+    state.encryptionKeys.delete(code);
+
     // Update the UI
     updateConnectionsList();
 
@@ -684,6 +756,7 @@ function disconnectAllPeers() {
 
         // Clear our state
         state.connections.clear();
+        state.encryptionKeys.clear();
         state.activeChat = null;
 
         // Update the UI
@@ -1020,17 +1093,46 @@ function sendMessage() {
 
         console.log('Sending message:', message);
 
+        // Get the encryption key for this connection
+        const encryptionKey = state.encryptionKeys.get(state.activeChat);
+        if (!encryptionKey) {
+            console.error('No encryption key found for connection:', state.activeChat);
+            showNotification('Connection not properly established. Please reconnect.', 'error');
+            // Re-enable the send button
+            elements.sendButton.disabled = false;
+            elements.sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            return;
+        }
+
+        // Encrypt the message text for transmission
+        let encryptedMessage;
+        try {
+            encryptedMessage = {
+                ...message,
+                text: EncryptionUtils.encrypt(text, encryptionKey),
+                encrypted: true
+            };
+            console.log('Message encrypted for transmission');
+        } catch (error) {
+            console.error('Failed to encrypt message:', error);
+            showNotification('Failed to encrypt message. Please try again.', 'error');
+            // Re-enable the send button
+            elements.sendButton.disabled = false;
+            elements.sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            return;
+        }
+
         // Clear the input immediately for better UX
         elements.messageInput.value = '';
 
         // Add the message to the UI with a 'sending' status
         const messageEl = addMessageToUI(message, true);
 
-        // Store the message
+        // Store the message (unencrypted for local display)
         storeMessage(message);
 
-        // Send the message
-        state.socketConnection.sendMessage(state.activeChat, message)
+        // Send the encrypted message
+        state.socketConnection.sendMessage(state.activeChat, encryptedMessage)
             .then(() => {
                 console.log('Message sent successfully');
                 // Update the message UI to show 'sent' status
@@ -1140,12 +1242,42 @@ function retrySendMessage(message, messageEl) {
 function handleIncomingMessage(event) {
     const { from, data } = event;
 
-    // Store the message
-    storeMessage(data);
+    // Get the encryption key for this connection
+    const encryptionKey = state.encryptionKeys.get(from);
+    if (!encryptionKey) {
+        console.error('No encryption key found for incoming message from:', from);
+        showNotification(`Received message from ${from} but connection not properly established`, 'warning');
+        return;
+    }
+
+    let decryptedMessage;
+    try {
+        // Decrypt the message if it's encrypted
+        if (data.encrypted && data.text) {
+            const decryptedText = EncryptionUtils.decrypt(data.text, encryptionKey);
+            decryptedMessage = {
+                ...data,
+                text: decryptedText,
+                encrypted: false // Mark as decrypted for local storage
+            };
+            console.log('Message decrypted successfully');
+        } else {
+            // Message is not encrypted (backwards compatibility)
+            decryptedMessage = data;
+            console.log('Received unencrypted message');
+        }
+    } catch (error) {
+        console.error('Failed to decrypt message:', error);
+        showNotification(`Failed to decrypt message from ${from}. The message may be corrupted.`, 'error');
+        return;
+    }
+
+    // Store the decrypted message
+    storeMessage(decryptedMessage);
 
     // If this is from the active chat, add it to the UI
     if (state.activeChat === from) {
-        addMessageToUI(data);
+        addMessageToUI(decryptedMessage);
     } else {
         // Show a notification
         showNotification(`New message from ${from}`, 'info');
@@ -1566,6 +1698,11 @@ function acceptConnectionRequest(fromCode) {
             connectionTime: new Date(),
             connection
         });
+
+        // Generate and store encryption key for this connection
+        const encryptionKey = EncryptionUtils.generateSharedKey(state.user.uniqueCode, fromCode);
+        state.encryptionKeys.set(fromCode, encryptionKey);
+        console.log(`Generated encryption key for ${fromCode}`);
 
         // Update the UI
         updateConnectionsList();
