@@ -14,17 +14,17 @@ const path = require('path');
 const config = {
     // The GitHub username where this will be deployed
     githubUsername: 'JewelPaul',
-    
+
     // The repository name
-    repoName: 'chatwave',
-    
+    repoName: 'CHAT-APPLICATION',
+
     // The Socket.io server URL to use in production
     // This should be updated to your actual server URL
-    socketServerUrl: 'https://jewel-chat-server.herokuapp.com',
-    
+    socketServerUrl: 'https://chat-application-7yim.onrender.com',
+
     // Whether to use a custom domain
     useCustomDomain: false,
-    
+
     // Custom domain name (if useCustomDomain is true)
     customDomain: 'chat.example.com'
 };
@@ -34,16 +34,16 @@ console.log('Starting deployment preparation...');
 // 1. Update the Socket.io connection in connection-handler.js
 try {
     const connectionHandlerPath = path.join(__dirname, 'js', 'connection-handler.js');
-    
+
     if (fs.existsSync(connectionHandlerPath)) {
         let content = fs.readFileSync(connectionHandlerPath, 'utf8');
-        
+
         // Replace the server URL
         content = content.replace(
             /return ['"]https:\/\/[^'"]+['"]/,
             `return '${config.socketServerUrl}'`
         );
-        
+
         fs.writeFileSync(connectionHandlerPath, content);
         console.log(`✅ Updated Socket.io server URL to ${config.socketServerUrl}`);
     } else {
@@ -104,19 +104,8 @@ The Socket.io server is hosted at: ${config.socketServerUrl}
 
 MIT
 `;
-    
     fs.writeFileSync(readmePath, readmeContent);
-    console.log('✅ Updated README.md with deployment instructions');
+    console.log('✅ Updated README.md');
 } catch (error) {
     console.error('❌ Error updating README.md:', error);
 }
-
-console.log('\nDeployment preparation complete!');
-console.log(`\nNext steps:
-1. Commit and push these changes to GitHub
-2. Go to your repository settings
-3. Enable GitHub Pages (Settings > Pages)
-4. Select the branch to deploy (usually 'main' or 'master')
-5. Click Save
-6. Your site will be available at: https://${config.githubUsername}.github.io/${config.repoName}/
-`);
