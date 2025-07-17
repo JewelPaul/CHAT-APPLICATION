@@ -104,8 +104,115 @@ class SocketConnection {
         });
 
         // File transfer events
-        // (add your file transfer logic here)
+        this.socket.on('file-transfer-request', (data) => {
+            console.log('File transfer request received:', data);
+            this.handleFileTransferRequest(data);
+        });
+
+        this.socket.on('file-transfer-accepted', (data) => {
+            console.log('File transfer accepted:', data);
+            this.handleFileTransferAccepted(data);
+        });
+
+        this.socket.on('file-transfer-complete', (data) => {
+            console.log('File transfer complete:', data);
+            this.handleFileTransferComplete(data);
+        });
+
+        this.socket.on('file-transfer-error', (data) => {
+            console.log('File transfer error:', data);
+            this.handleError(new Error(data.error || 'File transfer error'), data.targetCode);
+        });
     }
 
-    // ...rest of your class...
+    /**
+     * Connect to another user by code
+     * @param {string} code
+     */
+    connect(code) {
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('connection-request', { code });
+        } else {
+            this.handleError(new Error('Not connected to server'));
+        }
+    }
+
+    /**
+     * Register this client with the server
+     */
+    register() {
+        if (this.socket && this.uniqueCode) {
+            this.socket.emit('register', { code: this.uniqueCode });
+        }
+    }
+
+    /**
+     * Handle incoming connection request
+     * @param {Object} data
+     */
+    handleConnectionRequest(data) {
+        // Accept all incoming requests for now (customize as needed)
+        if (this.socket) {
+            this.socket.emit('connection-accept', { code: data.code });
+        }
+        this.onConnectionStateChange('request-received', data);
+    }
+
+    /**
+     * Handle connection accepted event
+     * @param {Object} data
+     */
+    handleConnectionAccepted(data) {
+        this.onConnectionStateChange('connected', data);
+    }
+
+    /**
+     * Handle incoming message
+     * @param {Object} data
+     */
+    handleMessage(data) {
+        this.onMessage(data);
+    }
+
+    /**
+     * Handle typing indicator
+     * @param {Object} data
+     */
+    handleTypingIndicator(data) {
+        // Implement typing indicator logic if needed
+    }
+
+    /**
+     * Handle file transfer request
+     * @param {Object} data
+     */
+    handleFileTransferRequest(data) {
+        // Implement file transfer request logic
+    }
+
+    /**
+     * Handle file transfer accepted event
+     * @param {Object} data
+     */
+    handleFileTransferAccepted(data) {
+        // Implement file transfer accepted logic
+    }
+
+    /**
+     * Handle file transfer complete event
+     * @param {Object} data
+     */
+    handleFileTransferComplete(data) {
+        // Implement file transfer complete logic
+    }
+
+    /**
+     * Handle errors
+     * @param {Error} error
+     * @param {string} [targetCode]
+     */
+    handleError(error, targetCode) {
+        console.error(error);
+        this.onError(error, targetCode);
+    }
 }
