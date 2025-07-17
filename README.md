@@ -1,17 +1,5 @@
 # CHAT APPLICATION
 
-COMPANY: CODTECH IT SOLUTIONS
-
-NAME: JEWEL GABRIEL PAUL
-
-INTERN ID: CT04WR20
-
-DOMAIN: FULL STACK WEB DEVELOPMENT
-
-DURATION: 4 WEEEKS
-
-MENTOR: NEELA SANTOSH
-
 # 🌊 ChatWave: Professional Real-Time Communication Platform
 
 ChatWave is a sophisticated real-time communication platform developed using modern web technologies. This application facilitates instantaneous messaging between users through an intuitive interface, eliminating traditional registration requirements while maintaining security and privacy standards.
