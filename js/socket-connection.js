@@ -55,8 +55,57 @@ class SocketConnection {
             this.handleError(new Error(`Failed to initialize Socket.io: ${error.message}`));
         }
 
-        // ... rest of your event listeners ...
+        // Set up event listeners
+        this.socket.on('connect', () => {
+            console.log('Connected to server, registering...');
+            this.register();
+        });
+
+        this.socket.on('registered', (data) => {
+            console.log('Registered with server:', data);
+        });
+
+        this.socket.on('connection-request', (data) => {
+            console.log('Received connection request:', data);
+            this.handleConnectionRequest(data);
+        });
+
+        this.socket.on('connection-request-sent', (data) => {
+            console.log('Connection request sent:', data);
+        });
+
+        this.socket.on('connection-accepted', (data) => {
+            console.log('Connection accepted:', data);
+            this.handleConnectionAccepted(data);
+        });
+
+        this.socket.on('connection-established', (data) => {
+            console.log('Connection established:', data);
+        });
+
+        this.socket.on('message', (data) => {
+            console.log('Received message:', data);
+            this.handleMessage(data);
+        });
+
+        this.socket.on('message-sent', (data) => {
+            console.log('Message sent:', data);
+        });
+
+        this.socket.on('message-error', (data) => {
+            console.log('Message error:', data);
+            this.handleError(new Error(data.error || 'Unknown error'), data.targetCode);
+        });
+
+        // Typing indicator events
+        this.socket.on('typing', (data) => {
+            console.log('Typing indicator received:', data);
+            this.handleTypingIndicator(data);
+        });
+
+        // File transfer events
+        // (add your file transfer logic here)
     }
 
-    // ... rest of your class ...
+    // ...rest of your class...
 }
