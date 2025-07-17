@@ -111,4 +111,8 @@ class EnhancedSocketConnection extends SocketConnection {
             this.handleError(new Error('Not connected to server'));
         }
     }
+
+    handleConnectionError(error) {
+        this.handleError(error);
+    }
 }
