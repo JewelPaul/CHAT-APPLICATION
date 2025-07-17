@@ -9,7 +9,6 @@ function getServerUrl() {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return window.location.origin;
     }
-
     // When deployed to GitHub Pages, use the Render backend
     return 'https://chat-application-7yim.onrender.com';
 }
