@@ -102,4 +102,13 @@ class EnhancedSocketConnection extends SocketConnection {
             this.handleError(new Error(`Failed to set up socket connection: ${error.message}`));
         }
     }
+
+    // Add connect() method for compatibility with UI
+    connect(code) {
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('connection-request', { code });
+        } else {
+            this.handleError(new Error('Not connected to server'));
+        }
+    }
 }
