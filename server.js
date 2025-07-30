@@ -1,5 +1,9 @@
 /**
- * ChatWave Socket.io Backend Server
+ * ChatWave Socket.io Backend Server (LEGACY)
+ * 
+ * NOTE: This is legacy code from when frontend was on GitHub Pages.
+ * The main server is now in server/server.js which serves both frontend and backend.
+ * 
  * Professional, production-ready real-time chat server
  * Author: JewelPaul
  */
@@ -10,19 +14,19 @@ const cors = require('cors');
 const { Server } = require('socket.io');
 
 const app = express();
-// Allow CORS from GitHub Pages domain
+// Updated CORS for single-service deployment
 app.use(cors({
-    origin: ["https://jewelpaul.github.io", "https://jewelpaul.github.io/CHAT-APPLICATION"],
-    credentials: true
+    origin: "*",
+    credentials: false
 }));
 const server = http.createServer(app);
 
 // Configure Socket.IO for CORS
 const io = new Server(server, {
     cors: {
-        origin: ["https://jewelpaul.github.io", "https://jewelpaul.github.io/CHAT-APPLICATION"],
+        origin: "*",
         methods: ["GET", "POST"],
-        credentials: true
+        credentials: false
     }
 });
 

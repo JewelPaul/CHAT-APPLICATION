@@ -5,12 +5,9 @@
 
 // Determine the server URL based on the current environment
 function getServerUrl() {
-    // When running locally, connect to localhost
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return window.location.origin;
-    }
-    // When deployed to GitHub Pages, use the Render backend
-    return 'https://chat-application-1-fl18.onrender.com';
+    // Use relative connection - connects to same origin as the frontend
+    // This works for both local development and deployed environments
+    return window.location.origin;
 }
 
 // Enhanced Socket.io connection with better error handling
@@ -29,7 +26,7 @@ class EnhancedSocketConnection extends SocketConnection {
         console.log('Setting up enhanced Socket.io connection');
 
         try {
-            // Connect to the Socket.io server with explicit URL and options
+            // Connect to the Socket.io server with same-origin URL
             const serverUrl = getServerUrl();
             console.log(`Connecting to server at: ${serverUrl}`);
 

@@ -1,7 +1,10 @@
 /**
- * Deployment Script for GitHub Pages
+ * Deployment Script for GitHub Pages (DEPRECATED)
  * 
- * This script prepares the application for deployment to GitHub Pages by:
+ * NOTE: This script is no longer needed as the application is now deployed
+ * as a single service on Render (frontend + backend together).
+ * 
+ * Previously, this script prepared the application for deployment to GitHub Pages by:
  * 1. Setting the correct Socket.io server URL
  * 2. Creating a CNAME file if needed
  * 3. Updating any GitHub-specific configurations
