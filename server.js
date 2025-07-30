@@ -12,7 +12,7 @@ const { Server } = require('socket.io');
 const app = express();
 // Allow CORS from GitHub Pages domain
 app.use(cors({
-    origin: ["https://jewelpaul.github.io"],
+    origin: ["https://jewelpaul.github.io", "https://jewelpaul.github.io/CHAT-APPLICATION"],
     credentials: true
 }));
 const server = http.createServer(app);
@@ -20,7 +20,7 @@ const server = http.createServer(app);
 // Configure Socket.IO for CORS
 const io = new Server(server, {
     cors: {
-        origin: ["https://jewelpaul.github.io"],
+        origin: ["https://jewelpaul.github.io", "https://jewelpaul.github.io/CHAT-APPLICATION"],
         methods: ["GET", "POST"],
         credentials: true
     }

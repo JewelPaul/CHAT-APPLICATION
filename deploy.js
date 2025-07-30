@@ -20,7 +20,7 @@ const config = {
 
     // The Socket.io server URL to use in production
     // This should be updated to your actual server URL
-    socketServerUrl: 'https://chat-application-7yim.onrender.com',
+    socketServerUrl: 'https://chat-application-1-fl18.onrender.com',
 
     // Whether to use a custom domain
     useCustomDomain: false,
