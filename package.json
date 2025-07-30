@@ -1,13 +1,17 @@
 {
   "name": "chatwave",
-  "version": "1.0.0",
-  "description": "A real-time chat application",
-  "main": "server.js",
+  "version": "2.0.0",
+  "description": "Ephemeral, invite-based secure chat application",
+  "main": "server/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server/server.js",
+    "dev": "node server/server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.2"
-  }
+  },
+  "keywords": ["chat", "ephemeral", "secure", "real-time", "invite-based"],
+  "author": "JewelPaul",
+  "license": "MIT"
 }
