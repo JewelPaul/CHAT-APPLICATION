@@ -9,9 +9,16 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.7.2"
+    "socket.io": "^4.7.2",
+    "socket.io-client": "^4.8.1"
   },
-  "keywords": ["chat", "ephemeral", "secure", "real-time", "invite-based"],
+  "keywords": [
+    "chat",
+    "ephemeral",
+    "secure",
+    "real-time",
+    "invite-based"
+  ],
   "author": "JewelPaul",
   "license": "MIT"
 }

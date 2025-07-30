@@ -10,7 +10,7 @@ function getServerUrl() {
         return window.location.origin;
     }
     // When deployed to GitHub Pages, use the Render backend
-    return 'https://chat-application-7yim.onrender.com';
+    return 'https://chat-application-1-fl18.onrender.com';
 }
 
 // Enhanced Socket.io connection with better error handling
