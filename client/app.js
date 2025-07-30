@@ -58,7 +58,7 @@ class ChatWaveApp {
     setupSocketConnection() {
         const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
             ? window.location.origin 
-            : window.location.origin;
+            : 'https://chat-application-1-fl18.onrender.com';
 
         this.socket = io(serverUrl, {
             reconnection: true,

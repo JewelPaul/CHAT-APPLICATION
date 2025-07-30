@@ -38,7 +38,7 @@ class SocketConnection {
                 serverUrl = window.location.origin;
             } else {
                 // Use Render backend for production
-                serverUrl = 'https://chat-application-7yim.onrender.com';
+                serverUrl = 'https://chat-application-1-fl18.onrender.com';
             }
 
             console.log(`Connecting to Socket.io server at ${serverUrl}`);

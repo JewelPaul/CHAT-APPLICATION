@@ -10,6 +10,16 @@ ChatWave is a revolutionary ephemeral chat application that prioritizes privacy 
 
 ## 🚀 Quick Start
 
+### Live Application (Recommended)
+
+**Use the live application directly:** [https://jewelpaul.github.io/CHAT-APPLICATION/](https://jewelpaul.github.io/CHAT-APPLICATION/)
+
+The live application connects to our secure Render backend server at `https://chat-application-1-fl18.onrender.com` for real-time chat functionality.
+
+### Local Development
+
+If you want to run your own instance:
+
 ### Prerequisites
 - Node.js 14+ 
 - npm or yarn
@@ -34,12 +44,17 @@ PORT=8080 npm start
 
 ### Usage
 
-1. **Open the application** in your browser
+#### Live Application
+1. **Visit** [https://jewelpaul.github.io/CHAT-APPLICATION/](https://jewelpaul.github.io/CHAT-APPLICATION/)
 2. **Share your unique invite code** with someone you want to chat with
 3. **Enter their invite code** to request a connection
 4. **Wait for approval** - they must accept your request
 5. **Start chatting** - messages are encrypted and ephemeral
 6. **Close tab/browser** - all data is instantly erased
+
+#### Local Development
+1. **Open the application** in your browser at `http://localhost:3000`
+2. Follow the same steps as above
 
 ---
 
