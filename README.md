@@ -1,10 +1,16 @@
 # ChatWave - Ephemeral Secure Chat
 
-> **Fully ephemeral, invite/consent-based secure chat application**
+> **Professional, full-stack chat application with React + TailwindCSS**
 > 
 > 🚫 **No Database** • 🔒 **End-to-End Encrypted** • 💾 **Memory Only** • 👥 **Invite-Based**
 
 ChatWave is a revolutionary ephemeral chat application that prioritizes privacy and security. All messages, media, and user data exist **only in memory** and are completely erased when users disconnect or the server restarts.
+
+![ChatWave Light Mode](https://github.com/user-attachments/assets/6084d498-b9e0-4e5f-ab29-0ca0aa090336)
+
+![ChatWave Dark Mode](https://github.com/user-attachments/assets/875f76db-dee3-46df-b328-f47c3ed44c6b)
+
+![ChatWave Mobile](https://github.com/user-attachments/assets/297e7fea-ab1f-4c17-b866-b2c201661034)
 
 ---
 
@@ -21,7 +27,7 @@ The entire application (frontend and backend) is deployed on Render as a single 
 If you want to run your own instance:
 
 ### Prerequisites
-- Node.js 14+ 
+- Node.js 18+ 
 - npm or yarn
 
 ### Installation & Setup
@@ -31,7 +37,7 @@ If you want to run your own instance:
 git clone https://github.com/JewelPaul/CHAT-APPLICATION.git
 cd CHAT-APPLICATION
 
-# Install dependencies
+# Install dependencies and build
 npm install
 
 # Start server (development)
@@ -73,7 +79,7 @@ ChatWave implements a **zero-persistence architecture**:
 
 ### **Security Features**
 
-- 🔐 **End-to-End Encryption** (E2EE) - Messages encrypted before transmission
+- 🔐 **End-to-End Encryption** (E2EE) - Messages encrypted before transmission using Web Crypto API
 - 🛡️ **Invite-Only Access** - No public rooms or discoverable chats  
 - ✋ **Consent Required** - Both parties must approve connection
 - 🚫 **No Registration** - No accounts, emails, or personal data required
@@ -111,10 +117,21 @@ CHAT-APPLICATION/
 ├── server/
 │   └── server.js          # Express + Socket.IO server with ephemeral logic
 ├── client/
-│   ├── index.html         # Modern responsive UI 
-│   ├── app.js            # Client logic with E2EE & media handling
-│   └── style.css         # Responsive styles with dark/light mode
-├── package.json          # Dependencies and scripts
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   ├── hooks/         # Custom React hooks
+│   │   ├── types.ts       # TypeScript type definitions
+│   │   ├── utils.ts       # Utility functions
+│   │   ├── crypto.ts      # End-to-end encryption
+│   │   ├── socket.ts      # Socket.IO client service
+│   │   └── index.css      # TailwindCSS styles
+│   ├── public/            # Static assets
+│   ├── package.json       # Frontend dependencies
+│   └── vite.config.ts     # Vite configuration
+├── package.json           # Root dependencies and scripts
+├── render.yaml           # Render.com deployment config
+├── vercel.json           # Vercel deployment config
+├── Dockerfile            # Container deployment
 └── README.md            # This file
 ```
 
@@ -127,14 +144,14 @@ CHAT-APPLICATION/
 - **In-Memory Storage** - Native JavaScript Maps and Sets
 
 **Frontend:**
-- **Vanilla JavaScript** - No frameworks for minimal footprint
-- **Socket.IO Client** - Real-time communication (served from same origin)
-- **CSS3 + CSS Variables** - Modern responsive design
-- **Font Awesome** - Icon library
-- **Google Fonts** - Typography
+- **React** - Modern UI framework with TypeScript
+- **TailwindCSS** - Utility-first CSS framework for styling
+- **Vite** - Fast build tool and development server
+- **Lucide React** - Beautiful icon library
+- **Socket.IO Client** - Real-time communication
 
 **Security:**
-- **Base64 Encoding** - Placeholder encryption (production would use WebCrypto API)
+- **Web Crypto API** - Modern browser encryption for E2EE
 - **HTTPS Ready** - TLS encryption for transport layer
 - **CORS Configured** - Cross-origin resource sharing protection
 
@@ -142,13 +159,20 @@ CHAT-APPLICATION/
 
 ## 🎯 Core Features
 
+### **Modern UI/UX**
+- **React + TailwindCSS** - Modern, responsive design system
+- **Dark/Light Mode** - Automatic and manual theme switching
+- **Mobile-First** - Fully responsive for all devices
+- **Accessible** - WCAG compliant with proper ARIA labels
+- **Professional Design** - Clean, minimalist interface
+
 ### **Ephemeral Messaging**
 - Real-time text messaging with instant delivery
 - All messages stored only in browser and server memory
 - Messages automatically deleted on disconnect
 - No message history persistence
 
-### **Media Sharing**
+### **Media Sharing** (Coming Soon)
 - Share images, videos, audio files, and documents
 - Files converted to Base64 and stored in memory only
 - Never written to disk or persistent storage
@@ -160,13 +184,11 @@ CHAT-APPLICATION/
 - Consent-based connection approval required
 - One-to-one chat sessions only
 
-### **Modern UI/UX**
-- Clean, professional interface design
-- Dark and light mode toggle
-- Responsive design for all devices
-- Real-time typing indicators
-- Connection status indicators
-- Intuitive notification system
+### **End-to-End Encryption**
+- **Web Crypto API** implementation for real encryption
+- **ECDH Key Exchange** for secure key derivation
+- **AES-GCM Encryption** for message protection
+- **Forward Secrecy** - New keys for each session
 
 ---
 
@@ -182,50 +204,67 @@ PORT=3000                    # Server port (default: 3000)
 NODE_ENV=production         # Production mode
 ```
 
-### **Server Configuration**
+### **Development Scripts**
 
-The server automatically configures itself for different environments:
+```bash
+# Install all dependencies
+npm install
 
-- **Development:** Serves static files from `client/` directory
-- **Production:** CORS enabled for cross-origin requests
-- **Health Check:** `/health` endpoint for monitoring
+# Build frontend for production
+npm run build
+
+# Start production server
+npm start
+
+# Development mode (client)
+cd client && npm run dev
+
+# Install client dependencies only
+npm run install-client
+```
 
 ---
 
 ## 🚀 Deployment
 
-### **Current Deployment**
+### **Render.com (Recommended)**
 
-The application is deployed as a single web service on Render:
-- **Frontend and Backend**: [https://chat-application-1-fl18.onrender.com](https://chat-application-1-fl18.onrender.com)
-- **Architecture**: Node.js server serves both the static frontend files and handles Socket.IO connections
-- **Benefits**: Single deployment, no CORS issues, simplified architecture
+1. **Fork this repository**
+2. **Connect to Render.com**
+3. **Create a new Web Service**
+4. **Select your fork**
+5. **Render will automatically deploy using render.yaml**
 
-### **Local Development**
+**Live Example**: [https://chat-application-1-fl18.onrender.com](https://chat-application-1-fl18.onrender.com)
+
+### **Vercel (Frontend Only)**
+
 ```bash
-npm start
-# Visit http://localhost:3000
+# Deploy frontend to Vercel
+vercel --prod
 ```
 
-### **Production (Render/Heroku)**
+### **Docker**
+
 ```bash
+# Build and run with Docker
+docker build -t chatwave .
+docker run -p 3000:3000 chatwave
+```
+
+### **Manual Deployment**
+
+```bash
+# Prepare for deployment
+npm install
+npm run build
+
 # Set environment variables
-PORT=8080
-NODE_ENV=production
+export PORT=8080
+export NODE_ENV=production
 
-# Deploy with your preferred platform
+# Start production server
 npm start
-```
-
-### **Docker (Optional)**
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --production
-COPY . .
-EXPOSE 3000
-CMD ["npm", "start"]
 ```
 
 ---
@@ -243,6 +282,7 @@ ChatWave is designed to lose data. This is a **FEATURE, not a bug**:
 ### **Browser Requirements**
 - Modern browser with WebSocket support
 - JavaScript enabled
+- Web Crypto API support (for encryption)
 - LocalStorage access (for theme preferences only)
 
 ### **Network Requirements**
@@ -270,6 +310,22 @@ We welcome contributions that maintain our ephemeral and security principles:
 - ✅ UI/UX enhancements welcome
 - ✅ Performance optimizations welcome
 
+### **Development Setup**
+
+```bash
+# Clone and setup
+git clone https://github.com/JewelPaul/CHAT-APPLICATION.git
+cd CHAT-APPLICATION
+npm install
+
+# Start development server
+npm start
+
+# Start frontend development server (separate terminal)
+cd client
+npm run dev
+```
+
 ---
 
 ## 📄 License
@@ -288,16 +344,18 @@ The application actively manages memory usage:
 - Memory usage monitoring via `/health` endpoint
 
 ### **Security Considerations**
-- E2EE implementation is currently a placeholder
-- Production deployment should implement proper WebCrypto API
-- Transport layer encryption (HTTPS) is essential
+- End-to-end encryption using modern Web Crypto API
+- Transport layer encryption (HTTPS) essential for production
 - Regular security audits recommended
+- No sensitive data logging or persistence
 
 ### **Performance**
-- Optimized for small to medium group chats
+- Optimized React components with proper memoization
+- Efficient WebSocket communication
+- TailwindCSS for optimized CSS bundle size
+- Vite for fast development and optimized production builds
 - Memory usage scales with active users and media
 - Automatic cleanup prevents memory leaks
-- Efficient Binary data handling for media
 
 ---
 
