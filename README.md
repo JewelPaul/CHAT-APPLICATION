@@ -12,9 +12,9 @@ ChatWave is a revolutionary ephemeral chat application that prioritizes privacy 
 
 ### Live Application (Recommended)
 
-**Use the live application directly:** [https://jewelpaul.github.io/CHAT-APPLICATION/](https://jewelpaul.github.io/CHAT-APPLICATION/)
+**Use the live application directly:** [https://chat-application-1-fl18.onrender.com](https://chat-application-1-fl18.onrender.com)
 
-The live application connects to our secure Render backend server at `https://chat-application-1-fl18.onrender.com` for real-time chat functionality.
+The entire application (frontend and backend) is deployed on Render as a single web service, providing seamless real-time chat functionality.
 
 ### Local Development
 
@@ -45,7 +45,7 @@ PORT=8080 npm start
 ### Usage
 
 #### Live Application
-1. **Visit** [https://jewelpaul.github.io/CHAT-APPLICATION/](https://jewelpaul.github.io/CHAT-APPLICATION/)
+1. **Visit** [https://chat-application-1-fl18.onrender.com](https://chat-application-1-fl18.onrender.com)
 2. **Share your unique invite code** with someone you want to chat with
 3. **Enter their invite code** to request a connection
 4. **Wait for approval** - they must accept your request
@@ -128,7 +128,7 @@ CHAT-APPLICATION/
 
 **Frontend:**
 - **Vanilla JavaScript** - No frameworks for minimal footprint
-- **Socket.IO Client** - Real-time communication
+- **Socket.IO Client** - Real-time communication (served from same origin)
 - **CSS3 + CSS Variables** - Modern responsive design
 - **Font Awesome** - Icon library
 - **Google Fonts** - Typography
@@ -193,6 +193,13 @@ The server automatically configures itself for different environments:
 ---
 
 ## 🚀 Deployment
+
+### **Current Deployment**
+
+The application is deployed as a single web service on Render:
+- **Frontend and Backend**: [https://chat-application-1-fl18.onrender.com](https://chat-application-1-fl18.onrender.com)
+- **Architecture**: Node.js server serves both the static frontend files and handles Socket.IO connections
+- **Benefits**: Single deployment, no CORS issues, simplified architecture
 
 ### **Local Development**
 ```bash
