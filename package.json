@@ -1,6 +1,7 @@
 {
   "name": "chatwave",
   "version": "2.0.0",
+  "type": "commonjs",
   "description": "Ephemeral, invite-based secure chat application",
   "main": "server/server.js",
   "scripts": {

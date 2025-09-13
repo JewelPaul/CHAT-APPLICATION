@@ -445,15 +445,10 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
     const uptime = process.uptime();
     res.json({
-        status: 'healthy',
+        status: 'ok',
         uptime: Math.floor(uptime),
-        timestamp: new Date().toISOString(),
-        clients: users.size,
-        users: users.size,
-        rooms: chatRooms.size,
-        media: mediaStorage.size,
-        memoryUsage: process.memoryUsage(),
-        version: '2.0.0'
+        timestamp: Date.now(),
+        clients: users.size
     });
 });
 
