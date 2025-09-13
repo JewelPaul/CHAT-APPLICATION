@@ -12,6 +12,7 @@ const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
 const { sanitizeMessage, validateUserCode, validateMessage, Logger } = require('./utils');
+const { version } = require('../package.json');
 
 const logger = new Logger(process.env.LOG_LEVEL || 'info');
 
@@ -447,8 +448,9 @@ app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
         uptime: Math.floor(uptime),
-        timestamp: Date.now(),
-        clients: users.size
+        timestamp: new Date().toISOString(),
+        clients: users.size,
+        version
     });
 });
 
