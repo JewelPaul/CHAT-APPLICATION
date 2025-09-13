@@ -1,375 +1,275 @@
-# ChatWave - Ephemeral Secure Chat
+# ChatWave - Ephemeral Secure Chat Application
 
-> **Professional, full-stack chat application with React + TailwindCSS**
-> 
-> 🚫 **No Database** • 🔒 **End-to-End Encrypted** • 💾 **Memory Only** • 👥 **Invite-Based**
+![ChatWave Interface](https://github.com/user-attachments/assets/a8da8dd5-54b1-4d35-b900-16a14129a750)
 
-ChatWave is a revolutionary ephemeral chat application that prioritizes privacy and security. All messages, media, and user data exist **only in memory** and are completely erased when users disconnect or the server restarts.
+A professional, production-ready ephemeral chat application built with React, TypeScript, and Socket.io. ChatWave prioritizes privacy with zero persistent storage - all conversations are lost when users disconnect or refresh their browser.
 
-![ChatWave Light Mode](https://github.com/user-attachments/assets/6084d498-b9e0-4e5f-ab29-0ca0aa090336)
+## 🚀 Features
 
-![ChatWave Dark Mode](https://github.com/user-attachments/assets/875f76db-dee3-46df-b328-f47c3ed44c6b)
-
-![ChatWave Mobile](https://github.com/user-attachments/assets/297e7fea-ab1f-4c17-b866-b2c201661034)
-
----
-
-## 🚀 Quick Start
-
-### Live Application (Recommended)
-
-**Use the live application directly:** [https://chat-application-1-fl18.onrender.com](https://chat-application-1-fl18.onrender.com)
-
-The entire application (frontend and backend) is deployed on Render as a single web service, providing seamless real-time chat functionality.
-
-### Local Development
-
-If you want to run your own instance:
-
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-
-### Installation & Setup
-
-```bash
-# Clone repository
-git clone https://github.com/JewelPaul/CHAT-APPLICATION.git
-cd CHAT-APPLICATION
-
-# Install dependencies and build
-npm install
-
-# Start server (development)
-npm start
-# Server runs on http://localhost:3000
-
-# Production deployment
-PORT=8080 npm start
-```
-
-### Usage
-
-#### Live Application
-1. **Visit** [https://chat-application-1-fl18.onrender.com](https://chat-application-1-fl18.onrender.com)
-2. **Share your unique invite code** with someone you want to chat with
-3. **Enter their invite code** to request a connection
-4. **Wait for approval** - they must accept your request
-5. **Start chatting** - messages are encrypted and ephemeral
-6. **Close tab/browser** - all data is instantly erased
-
-#### Local Development
-1. **Open the application** in your browser at `http://localhost:3000`
-2. Follow the same steps as above
-
----
-
-## 🔒 Security & Ephemeral Policy
-
-### **Ephemeral Data Policy**
-
-ChatWave implements a **zero-persistence architecture**:
-
-- ✅ **No database** - No PostgreSQL, MongoDB, or any persistent storage
-- ✅ **No file writes** - Media files never touch the disk
-- ✅ **Memory only** - All data stored in RAM only
-- ✅ **Instant erasure** - Data vanishes on disconnect/restart
-- ✅ **No logs** - No message or user data logging
-- ✅ **No tracking** - No analytics or user behavior tracking
-
-### **Security Features**
-
-- 🔐 **End-to-End Encryption** (E2EE) - Messages encrypted before transmission using Web Crypto API
-- 🛡️ **Invite-Only Access** - No public rooms or discoverable chats  
-- ✋ **Consent Required** - Both parties must approve connection
-- 🚫 **No Registration** - No accounts, emails, or personal data required
-- 🔄 **Session Isolation** - Each chat session is completely independent
-- ⚡ **Real-time** - Powered by Socket.IO for instant messaging
-
-### **Data Lifecycle**
-
-```
-User connects → Data in RAM → User disconnects → Data DESTROYED
-                    ↓
-              Server restart → ALL DATA DESTROYED
-```
-
-**Data Categories:**
-- **User Sessions:** Device name, unique code, avatar (if uploaded)
-- **Messages:** Text content, timestamps, sender/recipient info  
-- **Media:** Images, videos, files (stored as Base64 in memory)
-- **Connections:** Active chat rooms and participant lists
-
-**Data Destruction Triggers:**
-- User closes browser tab/window
-- User navigates away from page
-- Network disconnection
-- Server restart/crash
-- Manual disconnect
-
----
+- **Completely Ephemeral**: No database, no logs, no persistent storage - all data exists only in memory
+- **End-to-End Encryption**: Messages are encrypted between users using modern cryptographic standards
+- **Consent-Based Connection**: Both parties must explicitly approve connections before chatting begins  
+- **Invite-Only System**: Users connect via unique invite codes, no public directories or discoverability
+- **Real-Time Communication**: Instant messaging with typing indicators and connection status
+- **Media Sharing**: Share files and images (stored in memory only, automatically deleted)
+- **Cross-Platform**: Works on all modern browsers and devices
+- **Professional UI**: Clean, responsive interface built with React and Tailwind CSS
 
 ## 🏗️ Architecture
 
-### **File Structure**
+### Server (Node.js + Socket.io)
+- **Express.js** web server with security middleware (Helmet, Compression)
+- **Socket.io** for real-time WebSocket communication
+- **In-memory storage** only - no databases or file persistence
+- **Structured logging** with configurable log levels
+- **Health monitoring** endpoint with system metrics
+- **Graceful error handling** for malformed requests and crashes
+
+### Client (React + TypeScript)
+- **React 19** with TypeScript for type safety
+- **Vite** for fast development and optimized production builds
+- **Tailwind CSS** for responsive, professional styling
+- **Socket.io Client** for real-time communication
+- **ESLint + Prettier** for code quality and consistency
+
+## 🔒 Security Features
+
+- **XSS Protection**: All user input is sanitized before processing
+- **Input Validation**: Strict validation of user codes, messages, and data formats
+- **CORS Configuration**: Configurable cross-origin resource sharing
+- **CSP Headers**: Content Security Policy to prevent code injection
+- **Rate Limiting**: Built-in Socket.io connection management
+- **Error Boundaries**: Graceful handling of client-side errors
+
+## 📦 Installation & Setup
+
+### Prerequisites
+- Node.js 18+ and npm
+- Modern web browser with WebSocket support
+
+### Local Development
+
+1. **Clone and install dependencies:**
+```bash
+git clone https://github.com/JewelPaul/CHAT-APPLICATION.git
+cd CHAT-APPLICATION
+npm install
 ```
-CHAT-APPLICATION/
-├── server/
-│   └── server.js          # Express + Socket.IO server with ephemeral logic
-├── client/
-│   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── hooks/         # Custom React hooks
-│   │   ├── types.ts       # TypeScript type definitions
-│   │   ├── utils.ts       # Utility functions
-│   │   ├── crypto.ts      # End-to-end encryption
-│   │   ├── socket.ts      # Socket.IO client service
-│   │   └── index.css      # TailwindCSS styles
-│   ├── public/            # Static assets
-│   ├── package.json       # Frontend dependencies
-│   └── vite.config.ts     # Vite configuration
-├── package.json           # Root dependencies and scripts
-├── render.yaml           # Render.com deployment config
-├── vercel.json           # Vercel deployment config
-├── Dockerfile            # Container deployment
-└── README.md            # This file
+
+2. **Configure environment (optional):**
+```bash
+cp .env.example .env
+# Edit .env with your preferred settings
 ```
 
-### **Technology Stack**
+3. **Start development server:**
+```bash
+npm run dev
+```
 
-**Backend:**
-- **Node.js** - Runtime environment
-- **Express.js** - Web server framework  
-- **Socket.IO** - Real-time bidirectional communication
-- **In-Memory Storage** - Native JavaScript Maps and Sets
+4. **Open application:**
+Navigate to `http://localhost:3000` in your browser
 
-**Frontend:**
-- **React** - Modern UI framework with TypeScript
-- **TailwindCSS** - Utility-first CSS framework for styling
-- **Vite** - Fast build tool and development server
-- **Lucide React** - Beautiful icon library
-- **Socket.IO Client** - Real-time communication
+### Production Build
 
-**Security:**
-- **Web Crypto API** - Modern browser encryption for E2EE
-- **HTTPS Ready** - TLS encryption for transport layer
-- **CORS Configured** - Cross-origin resource sharing protection
+```bash
+npm run build    # Build client assets
+npm start        # Start production server
+```
 
----
+## 🌍 Environment Variables
 
-## 🎯 Core Features
-
-### **Modern UI/UX**
-- **React + TailwindCSS** - Modern, responsive design system
-- **Dark/Light Mode** - Automatic and manual theme switching
-- **Mobile-First** - Fully responsive for all devices
-- **Accessible** - WCAG compliant with proper ARIA labels
-- **Professional Design** - Clean, minimalist interface
-
-### **Ephemeral Messaging**
-- Real-time text messaging with instant delivery
-- All messages stored only in browser and server memory
-- Messages automatically deleted on disconnect
-- No message history persistence
-
-### **Media Sharing** (Coming Soon)
-- Share images, videos, audio files, and documents
-- Files converted to Base64 and stored in memory only
-- Never written to disk or persistent storage
-- Automatic cleanup when chat ends
-
-### **Invite System**
-- Generate unique alphanumeric invite codes
-- Share codes securely with intended recipients
-- Consent-based connection approval required
-- One-to-one chat sessions only
-
-### **End-to-End Encryption**
-- **Web Crypto API** implementation for real encryption
-- **ECDH Key Exchange** for secure key derivation
-- **AES-GCM Encryption** for message protection
-- **Forward Secrecy** - New keys for each session
-
----
-
-## 🔧 Configuration
-
-### **Environment Variables**
+Create a `.env` file based on `.env.example`:
 
 ```bash
 # Server Configuration
 PORT=3000                    # Server port (default: 3000)
-
-# Production Settings  
-NODE_ENV=production         # Production mode
+NODE_ENV=development         # Environment mode
+ORIGIN=http://localhost:3000 # CORS origin (use * for any origin)
+LOG_LEVEL=info              # Logging level (error, warn, info, debug)
 ```
 
-### **Development Scripts**
+## 🚀 Deployment (Render)
 
-```bash
-# Install all dependencies
-npm install
-
-# Build frontend for production
-npm run build
-
-# Start production server
-npm start
-
-# Development mode (client)
-cd client && npm run dev
-
-# Install client dependencies only
-npm run install-client
-```
-
----
-
-## 🚀 Deployment
-
-### **Render.com (Recommended)**
+ChatWave is configured for easy deployment on Render.com:
 
 1. **Fork this repository**
-2. **Connect to Render.com**
-3. **Create a new Web Service**
-4. **Select your fork**
-5. **Render will automatically deploy using render.yaml**
+2. **Connect to Render:**
+   - Create a new Web Service
+   - Connect your GitHub repository
+   - Render will automatically detect the `render.yaml` configuration
 
-**Live Example**: [https://chat-application-1-fl18.onrender.com](https://chat-application-1-fl18.onrender.com)
+3. **Environment Variables:**
+   - Set `NODE_ENV=production`
+   - Configure `ORIGIN` to your deployed domain
+   - Adjust `LOG_LEVEL` as needed
 
-### **Vercel (Frontend Only)**
+4. **Deploy:**
+   - Render will build and deploy automatically
+   - Health checks are configured via `/health` endpoint
 
+### Manual Deploy Commands
 ```bash
-# Deploy frontend to Vercel
-vercel --prod
-```
+# Build command (automated)
+npm install && npm run build
 
-### **Docker**
-
-```bash
-# Build and run with Docker
-docker build -t chatwave .
-docker run -p 3000:3000 chatwave
-```
-
-### **Manual Deployment**
-
-```bash
-# Prepare for deployment
-npm install
-npm run build
-
-# Set environment variables
-export PORT=8080
-export NODE_ENV=production
-
-# Start production server
+# Start command (automated)  
 npm start
 ```
 
----
+## 🛠️ Development Workflow
 
-## ⚠️ Important Warnings
-
-### **Data Loss by Design**
-ChatWave is designed to lose data. This is a **FEATURE, not a bug**:
-
-- 🚨 **No backups** - There is no way to recover lost messages
-- 🚨 **No exports** - You cannot save or export chat history  
-- 🚨 **Instant deletion** - Closing the tab immediately erases all data
-- 🚨 **Server restarts** - Any server maintenance erases all active chats
-
-### **Browser Requirements**
-- Modern browser with WebSocket support
-- JavaScript enabled
-- Web Crypto API support (for encryption)
-- LocalStorage access (for theme preferences only)
-
-### **Network Requirements**
-- Stable internet connection required
-- WebSocket connections must be allowed
-- HTTPS recommended for production
-
----
-
-## 🤝 Contributing
-
-We welcome contributions that maintain our ephemeral and security principles:
-
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Make changes** ensuring no persistent storage is added
-4. **Test thoroughly** - verify data is properly erased
-5. **Submit a Pull Request**
-
-### **Contribution Guidelines**
-- ❌ No database or file storage additions
-- ❌ No data persistence mechanisms  
-- ❌ No user tracking or analytics
-- ✅ Security improvements welcome
-- ✅ UI/UX enhancements welcome
-- ✅ Performance optimizations welcome
-
-### **Development Setup**
+### Available Scripts
 
 ```bash
-# Clone and setup
-git clone https://github.com/JewelPaul/CHAT-APPLICATION.git
-cd CHAT-APPLICATION
-npm install
-
-# Start development server
-npm start
-
-# Start frontend development server (separate terminal)
-cd client
-npm run dev
+npm start              # Production server
+npm run dev            # Development with hot reload (server + client)
+npm run dev:server     # Server only with nodemon
+npm run build          # Build client for production
+npm run lint           # Lint both server and client
+npm run format         # Format code with Prettier
+npm run health         # Check server health endpoint
 ```
 
----
+### Code Quality
+
+- **ESLint**: Configured for both server and client with TypeScript support
+- **Prettier**: Consistent code formatting across the project
+- **TypeScript**: Strict type checking for client-side code
+- **Nodemon**: Automatic server restart during development
+
+## 📡 API Endpoints
+
+### HTTP Endpoints
+
+| Endpoint | Method | Description | Response |
+|----------|--------|-------------|----------|
+| `/` | GET | Serve client application | HTML |
+| `/health` | GET | Health check with metrics | JSON |
+
+### Socket.io Events
+
+#### Client → Server
+
+| Event | Data | Description |
+|-------|------|-------------|
+| `register` | `{code, deviceName, avatar}` | Register user with invite code |
+| `connection-request` | `{code}` | Request connection to another user |
+| `connection-accept` | `{code}` | Accept incoming connection request |
+| `message` | `{to, message, roomId}` | Send text message |
+| `media-upload` | `{to, roomId, mediaData, filename, mimeType}` | Share media file |
+| `typing-start` | `{to}` | Indicate typing started |
+| `typing-stop` | `{to}` | Indicate typing stopped |
+
+#### Server → Client
+
+| Event | Data | Description |
+|-------|------|-------------|
+| `registered` | `{code, deviceName}` | Confirm user registration |
+| `connection-request` | `{code, deviceName, avatar}` | Incoming connection request |
+| `connection-accepted` | `{code, roomId, deviceName, avatar}` | Connection accepted |
+| `message` | `{id, from, to, message, timestamp, type}` | Incoming text message |
+| `media-message` | `{...messageData, mediaData}` | Incoming media file |
+| `typing-start` | `{from}` | User started typing |
+| `typing-stop` | `{from}` | User stopped typing |
+| `user-disconnected` | `{userCode}` | Connection partner disconnected |
+| `connection-error` | `{error}` | Connection or authentication error |
+| `message-error` | `{error}` | Message delivery error |
+
+## 🔍 Health Monitoring
+
+The `/health` endpoint provides comprehensive system metrics:
+
+```json
+{
+  "status": "healthy",
+  "uptime": 3600,
+  "timestamp": "2025-01-15T10:30:00.000Z", 
+  "clients": 42,
+  "users": 42,
+  "rooms": 21,
+  "media": 15,
+  "memoryUsage": {
+    "rss": 67108864,
+    "heapTotal": 20971520,
+    "heapUsed": 15728640,
+    "external": 1048576,
+    "arrayBuffers": 524288
+  },
+  "version": "2.0.0"
+}
+```
+
+## 🔐 Privacy & Security Notes
+
+### Data Handling
+- **No Persistence**: Messages, media, and user data are never written to disk
+- **Memory Only**: All data exists in server RAM and is lost on restart/disconnect
+- **Automatic Cleanup**: User data is immediately deleted when connections close
+- **No Logging**: Message content is never logged (only metadata for debugging)
+
+### Encryption
+- **Client-Side**: Messages are encrypted before transmission using Web Crypto API
+- **Key Exchange**: Secure key exchange using Diffie-Hellman or similar protocols
+- **Perfect Forward Secrecy**: New keys generated for each session
+- **Fallback Mode**: Unencrypted messaging if encryption fails (with clear user notice)
+
+### Network Security
+- **HTTPS Required**: Production deployment enforces secure connections
+- **WebSocket Security**: WSS (WebSocket Secure) for all real-time communication
+- **CORS Protection**: Configurable cross-origin restrictions
+- **Input Sanitization**: All user input sanitized to prevent XSS attacks
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Server won't start:**
+- Check if port is already in use: `lsof -ti:3000`
+- Verify Node.js version: `node --version` (requires 18+)
+- Check environment variables in `.env`
+
+**Client build fails:**
+- Clear node_modules: `rm -rf node_modules && npm install`
+- Check TypeScript errors: `cd client && npx tsc --noEmit`
+
+**WebSocket connection fails:**
+- Verify server is running and accessible
+- Check CORS configuration in server settings
+- Ensure firewall allows WebSocket connections
+
+**Messages not delivering:**
+- Check browser console for JavaScript errors
+- Verify both users are properly registered
+- Check server logs for Socket.io errors
+
+### Development Tips
+
+- Use browser DevTools Network tab to monitor WebSocket traffic
+- Check server logs with `LOG_LEVEL=debug` for detailed diagnostics
+- Test with multiple browser tabs/windows to simulate different users
+- Monitor health endpoint for system resource usage
 
 ## 📄 License
 
-MIT License - See LICENSE file for details
+MIT License - see [LICENSE](LICENSE) file for details
 
----
+## 🤝 Contributing
 
-## 🔍 Technical Notes
-
-### **Memory Management**
-The application actively manages memory usage:
-- Automatic cleanup of disconnected users
-- Media storage limits (5MB per file)
-- Garbage collection of orphaned data
-- Memory usage monitoring via `/health` endpoint
-
-### **Security Considerations**
-- End-to-end encryption using modern Web Crypto API
-- Transport layer encryption (HTTPS) essential for production
-- Regular security audits recommended
-- No sensitive data logging or persistence
-
-### **Performance**
-- Optimized React components with proper memoization
-- Efficient WebSocket communication
-- TailwindCSS for optimized CSS bundle size
-- Vite for fast development and optimized production builds
-- Memory usage scales with active users and media
-- Automatic cleanup prevents memory leaks
-
----
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make changes and add tests
+4. Lint and format: `npm run lint && npm run format`
+5. Commit changes: `git commit -m 'Add amazing feature'`
+6. Push to branch: `git push origin feature/amazing-feature`
+7. Open a Pull Request
 
 ## 📞 Support
 
-For support, feature requests, or security concerns:
-
-- **GitHub Issues:** [Create an issue](https://github.com/JewelPaul/CHAT-APPLICATION/issues)
-- **Security:** Report security issues responsibly via GitHub
-
----
-
-**Remember: ChatWave is ephemeral by design. Use it for conversations you don't need to keep forever.** 🌊
+- **Issues**: [GitHub Issues](https://github.com/JewelPaul/CHAT-APPLICATION/issues)
+- **Documentation**: Check this README and inline code comments
+- **Security**: Report security issues privately via GitHub
 
 ---
 
-*Developed with ❤️ by [JewelPaul](https://github.com/JewelPaul)*
+**⚠️ Privacy Reminder**: ChatWave is designed to lose data. Closing your browser tab will permanently delete all conversations. This is intentional and core to our privacy design.

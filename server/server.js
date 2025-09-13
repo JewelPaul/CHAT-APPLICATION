@@ -4,21 +4,45 @@
  * No database or persistent storage - all data stored in memory only
  */
 
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const helmet = require('helmet');
+const compression = require('compression');
+const { sanitizeMessage, validateUserCode, validateMessage, Logger } = require('./utils');
+
+const logger = new Logger(process.env.LOG_LEVEL || 'info');
 
 const app = express();
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: ["'self'", "ws:", "wss:"]
+    },
+  },
+}));
+
+// Compression middleware
+app.use(compression());
+
 const server = http.createServer(app);
 
-// Configure Socket.IO for full cross-origin support
+// Configure Socket.IO with improved error handling
 const io = new Server(server, {
     cors: {
-        origin: "*",
+        origin: process.env.ORIGIN || "*",
         methods: ["GET", "POST"],
         credentials: false
-    }
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000
 });
 
 // Serve static files from client build directory
@@ -55,7 +79,7 @@ function generateRoomId(user1, user2) {
 function cleanupUser(socketId) {
     const userCode = sockets.get(socketId);
     if (userCode) {
-        console.log(`[CLEANUP] User ${userCode} disconnected`);
+        logger.info('Cleaning up user', { userCode, socketId });
         
         // Remove from users map
         users.delete(userCode);
@@ -81,78 +105,101 @@ function cleanupUser(socketId) {
                     }
                 }
                 chatRooms.delete(roomId);
-                console.log(`[CLEANUP] Removed chat room ${roomId}`);
+                logger.debug('Removed chat room', { roomId, userCode });
             }
         }
     }
 }
 
 io.on('connection', (socket) => {
-    console.log(`[CONNECTION] New socket connected: ${socket.id}`);
+    logger.info('New socket connected', { socketId: socket.id });
+
+    // Error handling for socket
+    socket.on('error', (error) => {
+        logger.error('Socket error', { socketId: socket.id, error: error.message });
+    });
 
     // User registration with device info
-    socket.on('register', ({ code, deviceName, avatar }) => {
-        if (typeof code !== "string" || !code.trim()) {
-            socket.emit('connection-error', { error: 'Invalid code' });
-            return;
-        }
+    socket.on('register', (data) => {
+        try {
+            if (!data || typeof data !== 'object') {
+                socket.emit('connection-error', { error: 'Invalid registration data' });
+                return;
+            }
 
-        const userCode = code.trim();
-        
-        // Register user with ephemeral data
-        users.set(userCode, {
-            socketId: socket.id,
-            deviceName: deviceName || 'Unknown Device',
-            avatar: avatar || null,
-            connectionTime: new Date()
-        });
-        
-        sockets.set(socket.id, userCode);
-        
-        socket.emit('registered', { 
-            code: userCode,
-            deviceName: deviceName || 'Unknown Device'
-        });
-        
-        console.log(`[REGISTER] ${userCode} (${deviceName}) registered with socket ${socket.id}`);
+            const { code, deviceName, avatar } = data;
+
+            if (!validateUserCode(code)) {
+                socket.emit('connection-error', { error: 'Invalid code format' });
+                return;
+            }
+
+            const userCode = code.trim();
+            const sanitizedDeviceName = sanitizeMessage(deviceName || 'Unknown Device');
+            
+            // Register user with ephemeral data
+            users.set(userCode, {
+                socketId: socket.id,
+                deviceName: sanitizedDeviceName,
+                avatar: avatar || null,
+                connectionTime: new Date()
+            });
+            
+            sockets.set(socket.id, userCode);
+            
+            socket.emit('registered', { 
+                code: userCode,
+                deviceName: sanitizedDeviceName
+            });
+            
+            logger.info('User registered', { userCode, deviceName: sanitizedDeviceName, socketId: socket.id });
+        } catch (error) {
+            logger.error('Error in register handler', { error: error.message, socketId: socket.id });
+            socket.emit('connection-error', { error: 'Registration failed' });
+        }
     });
 
     // Send connection invite
-    socket.on('connection-request', ({ code }) => {
-        const requesterCode = sockets.get(socket.id);
-        if (!requesterCode) {
-            socket.emit('connection-error', { error: 'Not registered' });
-            return;
-        }
-
-        if (typeof code !== "string" || !code.trim()) {
-            socket.emit('connection-error', { error: 'Invalid connection code' });
-            return;
-        }
-
-        const targetCode = code.trim();
-        const targetUser = users.get(targetCode);
-        
-        if (targetUser) {
-            // Add to pending invites
-            if (!pendingInvites.has(targetCode)) {
-                pendingInvites.set(targetCode, new Set());
+    socket.on('connection-request', (data) => {
+        try {
+            const requesterCode = sockets.get(socket.id);
+            if (!requesterCode) {
+                socket.emit('connection-error', { error: 'Not registered' });
+                return;
             }
-            pendingInvites.get(targetCode).add(requesterCode);
+
+            if (!data || typeof data !== 'object' || !validateUserCode(data.code)) {
+                socket.emit('connection-error', { error: 'Invalid connection code' });
+                return;
+            }
+
+            const targetCode = data.code.trim();
+            const targetUser = users.get(targetCode);
             
-            // Send invite to target user
-            io.to(targetUser.socketId).emit('connection-request', { 
-                code: requesterCode,
-                deviceName: users.get(requesterCode).deviceName,
-                avatar: users.get(requesterCode).avatar
-            });
-            
-            // Confirm to requester
-            socket.emit('connection-request-sent', { code: targetCode });
-            
-            console.log(`[INVITE] ${requesterCode} -> ${targetCode}`);
-        } else {
-            socket.emit('connection-error', { error: 'User not found or offline' });
+            if (targetUser) {
+                // Add to pending invites
+                if (!pendingInvites.has(targetCode)) {
+                    pendingInvites.set(targetCode, new Set());
+                }
+                pendingInvites.get(targetCode).add(requesterCode);
+                
+                // Send invite to target user
+                io.to(targetUser.socketId).emit('connection-request', { 
+                    code: requesterCode,
+                    deviceName: users.get(requesterCode).deviceName,
+                    avatar: users.get(requesterCode).avatar
+                });
+                
+                // Confirm to requester
+                socket.emit('connection-request-sent', { code: targetCode });
+                
+                logger.info('Connection request sent', { from: requesterCode, to: targetCode });
+            } else {
+                socket.emit('connection-error', { error: 'User not found or offline' });
+            }
+        } catch (error) {
+            logger.error('Error in connection-request handler', { error: error.message, socketId: socket.id });
+            socket.emit('connection-error', { error: 'Connection request failed' });
         }
     });
 
@@ -205,41 +252,63 @@ io.on('connection', (socket) => {
     });
 
     // Handle text messages
-    socket.on('message', ({ to, message, roomId }) => {
-        const senderCode = sockets.get(socket.id);
-        if (!senderCode) {
-            socket.emit('message-error', { error: 'Not registered' });
-            return;
-        }
+    socket.on('message', (data) => {
+        try {
+            const senderCode = sockets.get(socket.id);
+            if (!senderCode) {
+                socket.emit('message-error', { error: 'Not registered' });
+                return;
+            }
 
-        const targetUser = users.get(to);
-        const room = chatRooms.get(roomId);
-        
-        if (targetUser && room && 
-            (room.user1 === senderCode || room.user2 === senderCode) &&
-            (room.user1 === to || room.user2 === to)) {
+            if (!data || typeof data !== 'object') {
+                socket.emit('message-error', { error: 'Invalid message data' });
+                return;
+            }
+
+            const { to, message, roomId } = data;
+
+            if (!validateUserCode(to) || !validateMessage(message) || !roomId) {
+                socket.emit('message-error', { error: 'Invalid message format' });
+                return;
+            }
+
+            const sanitizedMessage = sanitizeMessage(message);
+            const targetUser = users.get(to);
+            const room = chatRooms.get(roomId);
             
-            // Store message in room (ephemeral)
-            const messageData = {
-                id: Date.now() + Math.random(),
-                from: senderCode,
-                to: to,
-                message: message,
-                timestamp: new Date(),
-                type: 'text'
-            };
-            
-            room.messages.push(messageData);
-            
-            // Forward to recipient
-            io.to(targetUser.socketId).emit('message', messageData);
-            
-            // Confirm to sender
-            socket.emit('message-sent', messageData);
-            
-            console.log(`[MESSAGE] ${senderCode} -> ${to}: ${message.substring(0, 50)}...`);
-        } else {
-            socket.emit('message-error', { error: 'Invalid message recipient or room' });
+            if (targetUser && room && 
+                (room.user1 === senderCode || room.user2 === senderCode) &&
+                (room.user1 === to || room.user2 === to)) {
+                
+                // Store message in room (ephemeral)
+                const messageData = {
+                    id: Date.now() + Math.random(),
+                    from: senderCode,
+                    to: to,
+                    message: sanitizedMessage,
+                    timestamp: new Date(),
+                    type: 'text'
+                };
+                
+                room.messages.push(messageData);
+                
+                // Forward to recipient
+                io.to(targetUser.socketId).emit('message', messageData);
+                
+                // Confirm to sender
+                socket.emit('message-sent', messageData);
+                
+                logger.debug('Message sent', { 
+                    from: senderCode, 
+                    to, 
+                    length: sanitizedMessage.length 
+                });
+            } else {
+                socket.emit('message-error', { error: 'Invalid message recipient or room' });
+            }
+        } catch (error) {
+            logger.error('Error in message handler', { error: error.message, socketId: socket.id });
+            socket.emit('message-error', { error: 'Message failed to send' });
         }
     });
 
@@ -329,27 +398,41 @@ io.on('connection', (socket) => {
     });
 
     // Typing indicators
-    socket.on('typing-start', ({ to, roomId }) => {
-        const senderCode = sockets.get(socket.id);
-        const targetUser = users.get(to);
-        
-        if (senderCode && targetUser) {
-            io.to(targetUser.socketId).emit('typing-start', { from: senderCode });
+    socket.on('typing-start', (data) => {
+        try {
+            const senderCode = sockets.get(socket.id);
+            if (!senderCode || !data || !data.to) {
+                return;
+            }
+            
+            const targetUser = users.get(data.to);
+            if (targetUser) {
+                io.to(targetUser.socketId).emit('typing-start', { from: senderCode });
+            }
+        } catch (error) {
+            logger.error('Error in typing-start handler', { error: error.message });
         }
     });
 
-    socket.on('typing-stop', ({ to, roomId }) => {
-        const senderCode = sockets.get(socket.id);
-        const targetUser = users.get(to);
-        
-        if (senderCode && targetUser) {
-            io.to(targetUser.socketId).emit('typing-stop', { from: senderCode });
+    socket.on('typing-stop', (data) => {
+        try {
+            const senderCode = sockets.get(socket.id);
+            if (!senderCode || !data || !data.to) {
+                return;
+            }
+            
+            const targetUser = users.get(data.to);
+            if (targetUser) {
+                io.to(targetUser.socketId).emit('typing-stop', { from: senderCode });
+            }
+        } catch (error) {
+            logger.error('Error in typing-stop handler', { error: error.message });
         }
     });
 
     // Handle disconnect
-    socket.on('disconnect', () => {
-        console.log(`[DISCONNECT] Socket ${socket.id} disconnected`);
+    socket.on('disconnect', (reason) => {
+        logger.info('Socket disconnected', { socketId: socket.id, reason });
         cleanupUser(socket.id);
     });
 });
@@ -360,32 +443,60 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
+    const uptime = process.uptime();
     res.json({
         status: 'healthy',
-        timestamp: new Date(),
+        uptime: Math.floor(uptime),
+        timestamp: new Date().toISOString(),
+        clients: users.size,
         users: users.size,
         rooms: chatRooms.size,
         media: mediaStorage.size,
-        memoryUsage: process.memoryUsage()
+        memoryUsage: process.memoryUsage(),
+        version: '2.0.0'
     });
 });
 
 // Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`🚀 ChatWave Ephemeral Server running on port ${PORT}`);
-    console.log(`📝 All data stored in memory only - no persistence`);
-    console.log(`🔒 Invite-based consent system active`);
-    console.log(`💾 Active users: ${users.size}, Rooms: ${chatRooms.size}, Media: ${mediaStorage.size}`);
+    logger.info('ChatWave Ephemeral Server started', { 
+        port: PORT, 
+        nodeEnv: process.env.NODE_ENV || 'development' 
+    });
+    logger.info('Server configuration', {
+        ephemeral: true,
+        inviteBased: true,
+        cors: process.env.ORIGIN || '*'
+    });
+    logger.debug('Current stats', {
+        users: users.size, 
+        rooms: chatRooms.size, 
+        media: mediaStorage.size
+    });
+});
+
+// Graceful process error handlers
+process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception', { error: error.message, stack: error.stack });
+    // Don't exit immediately, log and continue
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled Rejection', { reason, promise });
+    // Don't exit immediately, log and continue
 });
 
 // Graceful shutdown - all data is lost
 process.on('SIGTERM', () => {
-    console.log('🛑 Server shutting down - all ephemeral data will be lost');
-    server.close();
+    logger.info('Server shutting down - all ephemeral data will be lost');
+    server.close(() => {
+        logger.info('Server closed');
+        process.exit(0);
+    });
 });
 
 process.on('SIGINT', () => {
-    console.log('🛑 Server interrupted - all ephemeral data will be lost');
+    logger.info('Server interrupted - all ephemeral data will be lost');
     process.exit(0);
 });
