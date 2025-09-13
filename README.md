@@ -44,7 +44,7 @@ A professional, production-ready ephemeral chat application built with React, Ty
 ## 📦 Installation & Setup
 
 ### Prerequisites
-- Node.js 18+ and npm
+- Node.js 20+ and npm (required for Vite 7 compatibility)
 - Modern web browser with WebSocket support
 
 ### Local Development
@@ -89,6 +89,40 @@ ORIGIN=http://localhost:3000 # CORS origin (use * for any origin)
 LOG_LEVEL=info              # Logging level (error, warn, info, debug)
 ```
 
+## 🐳 Docker Deployment
+
+ChatWave includes production-ready Docker configuration with Node 20 and optimized build process:
+
+### Docker Build & Run
+
+```bash
+# Build the Docker image
+docker build -t chatwave .
+
+# Run the container
+docker run -d \
+  -p 3000:3000 \
+  --name chatwave-app \
+  -e NODE_ENV=production \
+  -e ORIGIN=* \
+  -e LOG_LEVEL=info \
+  chatwave
+
+# Check health
+curl http://localhost:3000/health
+
+# Stop and remove
+docker stop chatwave-app && docker rm chatwave-app
+```
+
+### Docker Features
+
+- **Node 20 Alpine**: Lightweight base image with required Node version
+- **Multi-stage ready**: Current single-stage optimized for simplicity
+- **Health checks**: Built-in health monitoring via `/health` endpoint
+- **Security**: Runs as non-root user in container
+- **Environment**: Configurable via environment variables
+
 ## 🚀 Deployment (Render)
 
 ChatWave is configured for easy deployment on Render.com with a production-ready build system:
@@ -130,8 +164,9 @@ curl https://your-app.onrender.com/health
 {
   "status": "ok",
   "uptime": 120,
-  "timestamp": 1757764151238,
-  "clients": 0
+  "timestamp": "2025-01-15T10:30:00.000Z",
+  "clients": 0,
+  "version": "2.0.0"
 }
 ```
 
@@ -202,8 +237,9 @@ The `/health` endpoint provides essential system status:
 {
   "status": "ok",
   "uptime": 3600,
-  "timestamp": 1757764151238,
-  "clients": 42
+  "timestamp": "2025-01-15T10:30:00.000Z",
+  "clients": 42,
+  "version": "2.0.0"
 }
 ```
 
@@ -240,6 +276,17 @@ Use this endpoint for:
 
 ### Build Issues
 
+**Docker build fails with "Could not resolve entry module 'index.html'" error:**
+- ✅ **Root Cause**: Previously, the `postinstall` script triggered `vite build` during `npm install` before source files were copied to the container
+- ✅ **Resolution**: Removed problematic `postinstall` script and updated Docker build sequence
+- ✅ **Fix**: Docker now uses Node 20 (required for Vite 7) and builds after all files are copied
+- Manual fix: Remove `postinstall` from `package.json` and run `npm run build` manually after installation
+
+**Node version compatibility issues:**
+- Vite 7 requires Node.js 20.19.0+ or 22.12.0+
+- Docker now uses `node:20-alpine` base image  
+- Local development requires Node 20+: Check with `node --version`
+
 **Build fails with TypeScript errors:**
 - ✅ Fixed: Simplified TypeScript config (no more composite build)
 - Run: `npm run build` should complete without errors
@@ -254,7 +301,7 @@ Use this endpoint for:
 
 **Server won't start:**
 - Check if port is already in use: `lsof -ti:3000`
-- Verify Node.js version: `node --version` (requires 18+)
+- Verify Node.js version: `node --version` (requires 20+)
 - Check environment variables in `.env`
 
 **WebSocket connection fails:**

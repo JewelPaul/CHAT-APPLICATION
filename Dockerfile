@@ -1,5 +1,5 @@
 # Dockerfile for container deployment
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY client/package*.json ./client/
 
-# Install dependencies
+# Install dependencies (without triggering build due to removed postinstall)
 RUN npm install && cd client && npm install
 
 # Copy source code
