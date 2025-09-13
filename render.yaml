@@ -13,11 +13,11 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        fromService:
-          type: web
-          name: chatwave
-          property: port
+        value: 10000
       - key: LOG_LEVEL
         value: info
       - key: ORIGIN
-        value: "*"
+        fromService:
+          type: web
+          name: chatwave
+          property: url

@@ -46,7 +46,8 @@ function validateMessage(message) {
     return false;
   }
   
-  return message.trim().length > 0 && message.length <= 10000;
+  const trimmed = message.trim();
+  return trimmed.length > 0 && trimmed.length <= 2048; // 2KB limit
 }
 
 /**
