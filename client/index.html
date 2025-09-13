@@ -66,7 +66,7 @@
                 <div class="connect-form">
                     <h2>Join a Chat</h2>
                     <div class="input-group">
-                        <input type="text" id="connect-code" placeholder="Enter invite code" maxlength="10">
+                        <input type="text" id="connect-code" placeholder="Enter invite code" maxlength="10" aria-label="Enter invite code to connect">
                         <button id="connect-btn" class="btn btn-primary">
                             <i class="fas fa-paper-plane"></i> Request Access
                         </button>
@@ -116,7 +116,7 @@
                 </div>
             </div>
 
-            <div class="messages-container" id="messages-container">
+            <div class="messages-container" id="messages-container" role="log" aria-live="polite" aria-label="Chat messages">
                 <div class="welcome-message">
                     <div class="ephemeral-notice">
                         <i class="fas fa-exclamation-triangle"></i>
@@ -141,7 +141,7 @@
                     <i class="fas fa-paperclip"></i>
                 </button>
                 <div class="message-input">
-                    <input type="text" id="message-input" placeholder="Type a message..." maxlength="2000">
+                    <input type="text" id="message-input" placeholder="Type a message..." maxlength="2000" aria-label="Type your message">
                     <div class="input-actions">
                         <button class="emoji-button" id="emoji-button" title="Insert emoji">
                             <i class="far fa-smile"></i>

@@ -44,17 +44,6 @@ Thumbs.db
 tmp/
 temp/
 
-# Old files to exclude from new structure
-js/
-css/
-images/
-deploy.js
-about.html
-contact.html
-privacy.html
-terms.html
-chat-application.zip
-
-# Keep the new structure
-!server/
-!client/
+# Development tools
+.eslintrc.*
+.prettierrc.*

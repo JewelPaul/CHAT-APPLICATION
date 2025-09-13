@@ -1,4 +1,4 @@
-# ChatWave - Ephemeral Secure Chat
+# ChatWave - Production-Ready Ephemeral Secure Chat
 
 > **Fully ephemeral, invite/consent-based secure chat application**
 > 
@@ -6,25 +6,31 @@
 
 ChatWave is a revolutionary ephemeral chat application that prioritizes privacy and security. All messages, media, and user data exist **only in memory** and are completely erased when users disconnect or the server restarts.
 
+## ✨ Features
+
+- **Completely Ephemeral**: No database, no file storage, no persistence
+- **Invite-Only**: Consent-based connections using unique invite codes
+- **Real-time Messaging**: Instant message delivery via WebSocket
+- **Media Sharing**: Share images, videos, audio, and documents (temporarily)
+- **End-to-End Encryption**: Placeholder implementation for future enhancement
+- **Cross-Platform**: Works on desktop, mobile, and tablet
+- **Dark/Light Theme**: Automatic theme switching
+- **Production Ready**: Robust error handling, input validation, and monitoring
+
 ---
 
 ## 🚀 Quick Start
 
-### Live Application (Recommended)
-
+### Live Application
 **Use the live application directly:** [https://chat-application-1-fl18.onrender.com](https://chat-application-1-fl18.onrender.com)
-
-The entire application (frontend and backend) is deployed on Render as a single web service, providing seamless real-time chat functionality.
 
 ### Local Development
 
-If you want to run your own instance:
-
-### Prerequisites
+#### Prerequisites
 - Node.js 14+ 
 - npm or yarn
 
-### Installation & Setup
+#### Installation & Setup
 
 ```bash
 # Clone repository
@@ -34,20 +40,246 @@ cd CHAT-APPLICATION
 # Install dependencies
 npm install
 
-# Start server (development)
-npm start
-# Server runs on http://localhost:3000
+# Create environment file (optional)
+cp .env.example .env
 
-# Production deployment
-PORT=8080 npm start
+# Start development server
+npm run dev
+
+# Start production server
+npm start
 ```
 
-### Usage
+The application will be available at `http://localhost:3000`
 
-#### Live Application
-1. **Visit** [https://chat-application-1-fl18.onrender.com](https://chat-application-1-fl18.onrender.com)
-2. **Share your unique invite code** with someone you want to chat with
+---
+
+## 📁 Project Structure
+
+```
+CHAT-APPLICATION/
+├── client/                 # Frontend (HTML, CSS, JS)
+│   ├── index.html         # Main application page
+│   ├── style.css          # Application styles  
+│   └── app.js             # Client-side JavaScript
+├── server/                 # Backend (Node.js)
+│   └── server.js          # Express + Socket.io server
+├── .env.example           # Environment variables template
+├── .eslintrc.json         # ESLint configuration
+├── .prettierrc.json       # Prettier configuration
+├── .gitignore             # Git ignore rules
+├── package.json           # Dependencies and scripts
+└── README.md              # This file
+```
+
+---
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create a `.env` file in the root directory:
+
+```bash
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# CORS Configuration  
+ORIGIN=http://localhost:3000
+
+# Socket.IO Configuration
+SOCKET_PING_TIMEOUT=60000
+SOCKET_PING_INTERVAL=25000
+
+# Security Configuration
+MAX_MESSAGE_LENGTH=2000
+MAX_FILE_SIZE=10485760
+```
+
+---
+
+## 📋 Available Scripts
+
+```bash
+# Development
+npm run dev          # Start development server with logging
+
+# Production  
+npm start            # Start production server
+
+# Code Quality
+npm run lint         # Run ESLint
+npm run lint:fix     # Fix ESLint issues automatically  
+npm run format       # Format code with Prettier
+npm run format:check # Check code formatting
+
+# Monitoring
+npm run health       # Check server health status
+```
+
+---
+
+## 🛠 Usage
+
+### Starting a Chat
+
+1. **Open the application** in your browser
+2. **Share your unique invite code** with someone you want to chat with  
 3. **Enter their invite code** to request a connection
+4. **Wait for acceptance** - they must approve your connection request
+5. **Start chatting!** Messages are delivered in real-time
+
+### Features Available During Chat
+
+- **Text Messages**: Send encrypted messages instantly
+- **Media Sharing**: Upload images, videos, audio files, and documents
+- **Typing Indicators**: See when the other person is typing
+- **Connection Status**: Monitor your connection state
+- **Dark/Light Mode**: Toggle between themes
+- **End Chat**: Cleanly disconnect and clear all data
+
+### Security & Privacy
+
+- **No Storage**: All data exists only in server memory
+- **Automatic Cleanup**: Data is destroyed when you disconnect  
+- **Consent Required**: Both parties must approve connections
+- **Input Validation**: Messages are validated and sanitized
+- **Error Handling**: Robust error handling prevents crashes
+
+---
+
+## 🔗 API Endpoints
+
+### Health Check
+```
+GET /health
+```
+Returns server status, uptime, memory usage, and connection stats.
+
+Example response:
+```json
+{
+  "status": "ok",
+  "uptime": 3600,
+  "timestamp": "2025-01-01T00:00:00.000Z",
+  "connectedClients": 4,
+  "activeRooms": 2,
+  "mediaFiles": 1,
+  "environment": "production",
+  "version": "2.0.0",
+  "memory": {
+    "rss": "54 MB",
+    "heapTotal": "9 MB", 
+    "heapUsed": "7 MB",
+    "external": "2 MB"
+  }
+}
+```
+
+---
+
+## 🚀 Deployment
+
+### Local Production
+
+```bash
+# Set production environment
+export NODE_ENV=production
+export PORT=8080
+
+# Start server
+npm start
+```
+
+### Docker (Optional)
+
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+### Cloud Platforms
+
+The application is designed to work on any Node.js hosting platform:
+
+- **Render** ✅ (Currently deployed)  
+- **Heroku** ✅
+- **Railway** ✅
+- **Vercel** ✅
+- **Netlify Functions** ✅
+
+---
+
+## 🔒 Security Considerations
+
+- **Input Validation**: All user inputs are validated and sanitized
+- **Rate Limiting**: Consider adding rate limiting for production
+- **CORS**: Configured for your domain in production  
+- **HTTPS**: Use HTTPS in production (handled by hosting platform)
+- **Environment Variables**: Keep sensitive config in environment variables
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Connection Issues**
+- Check if server is running: `curl http://localhost:3000/health`
+- Verify port is not in use: `lsof -i :3000`
+- Check browser console for JavaScript errors
+
+**Performance Issues**  
+- Monitor memory usage via `/health` endpoint
+- Restart server to clear memory (all chats will be lost)
+- Consider horizontal scaling for high traffic
+
+**Development Issues**
+- Run `npm run lint` to check for code issues
+- Run `npm run format` to fix formatting
+- Check Node.js version (requires 14+)
+
+---
+
+## 🤝 Contributing
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)  
+5. **Open** a Pull Request
+
+### Code Quality
+
+- All code must pass ESLint checks: `npm run lint`
+- Use Prettier for formatting: `npm run format`  
+- Follow existing code patterns and conventions
+- Add comments for complex logic
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **Socket.io** for real-time communication
+- **Express.js** for the web framework
+- **Font Awesome** for icons
+- **Google Fonts** for typography
+
+---
+
+**Made with ❤️ by [JewelPaul](https://github.com/JewelPaul)**
 4. **Wait for approval** - they must accept your request
 5. **Start chatting** - messages are encrypted and ephemeral
 6. **Close tab/browser** - all data is instantly erased

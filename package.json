@@ -4,13 +4,25 @@
   "description": "Ephemeral, invite-based secure chat application",
   "main": "server/server.js",
   "scripts": {
-    "start": "node server/server.js",
-    "dev": "node server/server.js"
+    "start": "NODE_ENV=production node server/server.js",
+    "dev": "concurrently \"node server/server.js\" \"echo 'Frontend served by server at http://localhost:3000'\"",
+    "lint": "eslint server/ client/ --ext .js",
+    "lint:fix": "eslint server/ client/ --ext .js --fix",
+    "format": "prettier --write server/**/*.js client/**/*.js *.js",
+    "format:check": "prettier --check server/**/*.js client/**/*.js *.js",
+    "test": "echo 'No tests specified yet' && exit 0",
+    "health": "curl -f http://localhost:3000/health || exit 1"
   },
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.2",
-    "socket.io-client": "^4.8.1"
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "eslint": "^8.52.0",
+    "prettier": "^3.0.3",
+    "cross-env": "^7.0.3"
   },
   "keywords": [
     "chat",
@@ -20,5 +32,8 @@
     "invite-based"
   ],
   "author": "JewelPaul",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
 }

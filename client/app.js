@@ -4,6 +4,8 @@
  * Features: Real-time messaging, E2EE placeholder, media sharing, dark/light mode
  */
 
+/* global io */
+
 class ChatWaveApp {
     constructor() {
         this.socket = null;
@@ -20,6 +22,31 @@ class ChatWaveApp {
         this.init();
     }
 
+    // DOM safety helper
+    safeGetElement(id) {
+        const element = document.getElementById(id);
+        if (!element) {
+            console.warn(`Element with ID '${id}' not found`);
+        }
+        return element;
+    }
+
+    // Safe DOM operation helper
+    safeSetContent(id, content) {
+        const element = this.safeGetElement(id);
+        if (element) {
+            element.textContent = content;
+        }
+    }
+
+    // Safe event listener helper
+    safeAddEventListener(id, event, handler) {
+        const element = this.safeGetElement(id);
+        if (element) {
+            element.addEventListener(event, handler);
+        }
+    }
+
     init() {
         this.generateUserCode();
         this.detectDevice();
@@ -32,7 +59,7 @@ class ChatWaveApp {
     // Generate unique user code
     generateUserCode() {
         this.userCode = Math.random().toString(36).substr(2, 6).toUpperCase();
-        document.getElementById('unique-code').textContent = this.userCode;
+        this.safeSetContent('unique-code', this.userCode);
     }
 
     // Detect device name
@@ -51,7 +78,7 @@ class ChatWaveApp {
         device += ' ' + Math.floor(Math.random() * 1000);
         
         this.deviceName = device;
-        document.getElementById('device-name').textContent = device;
+        this.safeSetContent('device-name', device);
     }
 
     // Setup Socket.IO connection
@@ -122,7 +149,7 @@ class ChatWaveApp {
             this.showTypingIndicator(data.from);
         });
 
-        this.socket.on('typing-stop', (data) => {
+        this.socket.on('typing-stop', (_data) => {
             this.hideTypingIndicator();
         });
 
