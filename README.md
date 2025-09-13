@@ -91,7 +91,9 @@ LOG_LEVEL=info              # Logging level (error, warn, info, debug)
 
 ## 🚀 Deployment (Render)
 
-ChatWave is configured for easy deployment on Render.com:
+ChatWave is configured for easy deployment on Render.com with a production-ready build system:
+
+### Quick Deploy Steps
 
 1. **Fork this repository**
 2. **Connect to Render:**
@@ -99,14 +101,17 @@ ChatWave is configured for easy deployment on Render.com:
    - Connect your GitHub repository
    - Render will automatically detect the `render.yaml` configuration
 
-3. **Environment Variables:**
-   - Set `NODE_ENV=production`
-   - Configure `ORIGIN` to your deployed domain
-   - Adjust `LOG_LEVEL` as needed
+3. **Environment Variables** (automatically configured):
+   - `NODE_ENV=production`
+   - `PORT=10000`
+   - `ORIGIN` set to your service URL
+   - `LOG_LEVEL=info`
+   - `ENCRYPTION_ENABLED=false` (optional)
 
 4. **Deploy:**
    - Render will build and deploy automatically
    - Health checks are configured via `/health` endpoint
+   - Cold start time: ~30-60 seconds
 
 ### Manual Deploy Commands
 ```bash
@@ -115,6 +120,19 @@ npm install && npm run build
 
 # Start command (automated)  
 npm start
+
+# Health check
+curl https://your-app.onrender.com/health
+```
+
+### Expected Health Response
+```json
+{
+  "status": "ok",
+  "uptime": 120,
+  "timestamp": 1757764151238,
+  "clients": 0
+}
 ```
 
 ## 🛠️ Development Workflow
@@ -178,27 +196,22 @@ npm run health         # Check server health endpoint
 
 ## 🔍 Health Monitoring
 
-The `/health` endpoint provides comprehensive system metrics:
+The `/health` endpoint provides essential system status:
 
 ```json
 {
-  "status": "healthy",
+  "status": "ok",
   "uptime": 3600,
-  "timestamp": "2025-01-15T10:30:00.000Z", 
-  "clients": 42,
-  "users": 42,
-  "rooms": 21,
-  "media": 15,
-  "memoryUsage": {
-    "rss": 67108864,
-    "heapTotal": 20971520,
-    "heapUsed": 15728640,
-    "external": 1048576,
-    "arrayBuffers": 524288
-  },
-  "version": "2.0.0"
+  "timestamp": 1757764151238,
+  "clients": 42
 }
 ```
+
+Use this endpoint for:
+- Render.com health checks (configured in `render.yaml`)
+- Monitoring server availability
+- Checking active connection count
+- Uptime tracking
 
 ## 🔐 Privacy & Security Notes
 
@@ -208,40 +221,64 @@ The `/health` endpoint provides comprehensive system metrics:
 - **Automatic Cleanup**: User data is immediately deleted when connections close
 - **No Logging**: Message content is never logged (only metadata for debugging)
 
-### Encryption
-- **Client-Side**: Messages are encrypted before transmission using Web Crypto API
+### Encryption (Optional Feature)
+- **Optional Feature**: Enable/disable via `ENCRYPTION_ENABLED` environment variable
+- **Client-Side**: Messages are encrypted before transmission using Web Crypto API  
 - **Key Exchange**: Secure key exchange using Diffie-Hellman or similar protocols
 - **Perfect Forward Secrecy**: New keys generated for each session
-- **Fallback Mode**: Unencrypted messaging if encryption fails (with clear user notice)
+- **Graceful Fallback**: If encryption fails, falls back to plaintext with user notification
+- **Production Ready**: Wrapped in try/catch blocks to prevent chat interruption
 
 ### Network Security
 - **HTTPS Required**: Production deployment enforces secure connections
 - **WebSocket Security**: WSS (WebSocket Secure) for all real-time communication
-- **CORS Protection**: Configurable cross-origin restrictions
-- **Input Sanitization**: All user input sanitized to prevent XSS attacks
+- **CORS Protection**: Configurable cross-origin restrictions  
+- **Input Sanitization**: All user input sanitized to prevent XSS attacks (2KB message limit)
+- **Rate Limiting**: Socket.io built-in connection throttling
 
 ## 🐛 Troubleshooting
 
-### Common Issues
+### Build Issues
+
+**Build fails with TypeScript errors:**
+- ✅ Fixed: Simplified TypeScript config (no more composite build)
+- Run: `npm run build` should complete without errors
+- Clear cache: `rm -rf client/node_modules client/dist && cd client && npm install`
+
+**Render deployment fails:**
+- Check build logs for TypeScript compilation errors
+- Verify `render.yaml` configuration is correct
+- Ensure all dependencies are in `package.json`, not just `devDependencies`
+
+### Runtime Issues
 
 **Server won't start:**
 - Check if port is already in use: `lsof -ti:3000`
 - Verify Node.js version: `node --version` (requires 18+)
 - Check environment variables in `.env`
 
-**Client build fails:**
-- Clear node_modules: `rm -rf node_modules && npm install`
-- Check TypeScript errors: `cd client && npx tsc --noEmit`
-
 **WebSocket connection fails:**
-- Verify server is running and accessible
+- Verify server is running and accessible: `curl http://localhost:3000/health`
 - Check CORS configuration in server settings
-- Ensure firewall allows WebSocket connections
+- For Render: WebSocket connections may take 30-60 seconds on cold start
 
 **Messages not delivering:**
 - Check browser console for JavaScript errors
 - Verify both users are properly registered
 - Check server logs for Socket.io errors
+- Test with `/health` endpoint to verify server connectivity
+
+### Render-Specific Issues
+
+**Cold start delays:**
+- First request after inactivity takes 30-60 seconds
+- Health check endpoint helps maintain warm connections
+- Consider upgrading to paid plan for faster cold starts
+
+**Environment variables not set:**
+- Check Render dashboard environment variables
+- `ORIGIN` should be set to your Render service URL
+- `NODE_ENV=production` is required for production mode
 
 ### Development Tips
 

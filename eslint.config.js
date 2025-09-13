@@ -1,9 +1,11 @@
-export default [
+const js = require('@eslint/js');
+
+module.exports = [
   {
     files: ["**/*.js", "**/*.mjs"],
     languageOptions: {
       ecmaVersion: 2022,
-      sourceType: "module",
+      sourceType: "commonjs",
       globals: {
         console: "readonly",
         process: "readonly",
