@@ -1,0 +1,21 @@
+# For Vercel deployment of static frontend only
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "client/package.json",
+      "use": "@vercel/node",
+      "config": {
+        "zeroConfig": true
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/client/dist/$1"
+    }
+  ],
+  "functions": {},
+  "outputDirectory": "client/dist"
+}

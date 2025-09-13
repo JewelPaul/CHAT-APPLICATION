@@ -1,0 +1,19 @@
+# Render.com deployment configuration
+version: "1"
+
+services:
+  - type: web
+    name: chatwave
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        fromService:
+          type: web
+          name: chatwave
+          property: port

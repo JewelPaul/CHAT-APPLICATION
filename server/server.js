@@ -21,8 +21,8 @@ const io = new Server(server, {
     }
 });
 
-// Serve static files from client directory
-app.use(express.static(path.join(__dirname, '../client')));
+// Serve static files from client build directory
+app.use(express.static(path.join(__dirname, '../client/dist')));
 
 // EPHEMERAL IN-MEMORY STORAGE ONLY
 // All data is lost when server restarts or users disconnect
@@ -356,7 +356,7 @@ io.on('connection', (socket) => {
 
 // Health check endpoint
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/index.html'));
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
 app.get('/health', (req, res) => {
