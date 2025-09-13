@@ -17,3 +17,7 @@ services:
           type: web
           name: chatwave
           property: port
+      - key: LOG_LEVEL
+        value: info
+      - key: ORIGIN
+        value: "*"
