@@ -184,7 +184,6 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
       console.error('[WebRTC] Error initializing peer connection:', error)
       throw error
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remoteUser, cleanup])
 
   // Initiate a call (caller side)
