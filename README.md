@@ -11,7 +11,8 @@ A professional, production-ready ephemeral chat application built with React, Ty
 - **Consent-Based Connection**: Both parties must explicitly approve connections before chatting begins  
 - **Invite-Only System**: Users connect via unique invite codes, no public directories or discoverability
 - **Real-Time Communication**: Instant messaging with typing indicators and connection status
-- **Media Sharing**: Share files and images (stored in memory only, automatically deleted)
+- **Rich Media Sharing**: Share files (images, videos, audio, documents) with inline previews and secure handling
+- **Audio/Video Calling**: One-to-one WebRTC-powered audio and video calls with full controls
 - **Cross-Platform**: Works on all modern browsers and devices
 - **Professional UI**: Clean, responsive interface built with React and Tailwind CSS
 
@@ -213,6 +214,11 @@ npm run health         # Check server health endpoint
 | `media-upload` | `{to, roomId, mediaData, filename, mimeType}` | Share media file |
 | `typing-start` | `{to}` | Indicate typing started |
 | `typing-stop` | `{to}` | Indicate typing stopped |
+| `call-initiate` | `{to, type}` | Initiate audio/video call |
+| `call-accept` | `{from}` | Accept incoming call |
+| `call-reject` | `{from}` | Reject incoming call |
+| `call-end` | `{to}` | End active call |
+| `webrtc-signal` | `{to, signal, signalType}` | WebRTC signaling (SDP/ICE) |
 
 #### Server → Client
 
@@ -228,6 +234,12 @@ npm run health         # Check server health endpoint
 | `user-disconnected` | `{userCode}` | Connection partner disconnected |
 | `connection-error` | `{error}` | Connection or authentication error |
 | `message-error` | `{error}` | Message delivery error |
+| `call-incoming` | `{from, type, deviceName}` | Incoming audio/video call |
+| `call-accepted` | `{from, deviceName}` | Call was accepted |
+| `call-rejected` | `{from}` | Call was rejected |
+| `call-ended` | `{from}` | Call has ended |
+| `call-error` | `{error}` | Call-related error |
+| `webrtc-signal` | `{from, signal, signalType}` | WebRTC signaling from peer |
 
 ## 🔍 Health Monitoring
 
@@ -248,6 +260,85 @@ Use this endpoint for:
 - Monitoring server availability
 - Checking active connection count
 - Uptime tracking
+
+## 📁 Rich Media Sharing
+
+ChatWave supports secure file sharing with the following capabilities:
+
+### Supported File Types
+- **Images**: JPEG, PNG, GIF, WebP, SVG (max 5MB)
+- **Videos**: MP4, WebM, QuickTime, AVI (max 10MB, short clips recommended)
+- **Audio**: MP3, WAV, OGG, WebM, AAC (max 5MB)
+- **Documents**: PDF, TXT, CSV, Word, Excel (max 10MB)
+
+### Features
+- **Inline Previews**: Images, videos, and audio display with native controls
+- **Image Lightbox**: Click images to view full-size with zoom
+- **Secure Downloads**: All file types can be downloaded safely
+- **Rate Limiting**: Max 5 uploads per minute per user
+- **Validation**: Server-side MIME type and size checks
+- **Sanitization**: Filenames sanitized to prevent XSS and directory traversal
+- **Ephemeral Storage**: Files stored in memory only, deleted when users disconnect
+
+### Using File Sharing
+
+1. Click the paperclip icon in the chat interface
+2. Select a file within the size limits
+3. File is validated and uploaded automatically
+4. Preview appears inline for images/video/audio
+5. Documents show file icon with download option
+
+## 📞 Audio/Video Calling
+
+ChatWave includes WebRTC-powered one-to-one audio and video calls:
+
+### Features
+- **Audio Calls**: Crystal-clear voice communication
+- **Video Calls**: HD video with Picture-in-Picture local view
+- **Call Controls**:
+  - Mute/unmute microphone
+  - Toggle camera on/off (video calls)
+  - End call button
+- **Call Management**:
+  - Incoming call modal with accept/reject
+  - Call status indicators
+  - Graceful error handling
+
+### Using Calling Features
+
+**To make a call:**
+1. Open a chat with another user
+2. Click the phone icon (audio) or video icon (video call)
+3. Grant camera/microphone permissions when prompted
+4. Wait for the other user to accept
+
+**To receive a call:**
+1. Incoming call modal appears automatically
+2. Click "Accept" to join or "Decline" to reject
+3. Grant permissions if needed
+4. Call starts when both users are connected
+
+### Requirements
+- Modern browser with WebRTC support (Chrome, Firefox, Safari, Edge)
+- Camera (for video calls) and microphone access
+- Stable internet connection
+
+### Troubleshooting Calls
+
+**Permission denied errors:**
+- Check browser settings for camera/microphone access
+- Click the lock icon in address bar to manage permissions
+- Reload the page after granting permissions
+
+**Call quality issues:**
+- Check internet connection stability
+- Close bandwidth-heavy applications
+- Try switching to audio-only if video is problematic
+
+**Call won't connect:**
+- Ensure both users have granted required permissions
+- Check firewall settings (WebRTC uses UDP)
+- Try refreshing the page and reconnecting
 
 ## 🔐 Privacy & Security Notes
 
@@ -340,6 +431,14 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ## 🤝 Contributing
 
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Detailed testing scenarios for all features
+- QA instructions for file sharing and calling
+- Security testing guidelines
+- Code style requirements
+- Pull request process
+
+Quick start:
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
 3. Make changes and add tests

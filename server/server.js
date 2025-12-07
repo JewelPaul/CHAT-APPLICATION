@@ -67,6 +67,35 @@ const pendingInvites = new Map();
 // In-memory media storage (files never written to disk)
 const mediaStorage = new Map(); // mediaId -> { data, type, filename, size, timestamp }
 
+// Rate limiting for media uploads (max 5 uploads per minute per user)
+const uploadRateLimit = new Map(); // userCode -> { count, resetTime }
+const UPLOAD_RATE_LIMIT = 5;
+const UPLOAD_RATE_WINDOW = 60000; // 1 minute
+
+/**
+ * Check and update rate limit for uploads
+ */
+function checkUploadRateLimit(userCode) {
+    const now = Date.now();
+    const userLimit = uploadRateLimit.get(userCode);
+    
+    if (!userLimit || now > userLimit.resetTime) {
+        // Reset or create new limit
+        uploadRateLimit.set(userCode, {
+            count: 1,
+            resetTime: now + UPLOAD_RATE_WINDOW
+        });
+        return true;
+    }
+    
+    if (userLimit.count >= UPLOAD_RATE_LIMIT) {
+        return false;
+    }
+    
+    userLimit.count++;
+    return true;
+}
+
 /**
  * Generate unique room ID for two users
  */
@@ -88,6 +117,9 @@ function cleanupUser(socketId) {
         
         // Clean up pending invites
         pendingInvites.delete(userCode);
+        
+        // Clean up rate limiting
+        uploadRateLimit.delete(userCode);
         
         // Clean up chat rooms where this user participated
         for (const [roomId, room] of chatRooms.entries()) {
@@ -319,6 +351,15 @@ io.on('connection', (socket) => {
             const senderCode = sockets.get(socket.id);
             if (!senderCode) {
                 socket.emit('media-error', { error: 'Not registered' });
+                return;
+            }
+
+            // Check rate limit
+            if (!checkUploadRateLimit(senderCode)) {
+                socket.emit('media-error', { 
+                    error: `Upload rate limit exceeded. Please wait before uploading more files (max ${UPLOAD_RATE_LIMIT} per minute).` 
+                });
+                logger.warn('Upload rate limit exceeded', { from: senderCode });
                 return;
             }
 
