@@ -26,7 +26,10 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   // Queue for ICE candidates received before remote description is set
   const iceCandidateQueueRef = useRef<RTCIceCandidateInit[]>([])
+  // Tracks whether this peer initiated the call (true = caller, false = receiver)
   const isInitiatorRef = useRef<boolean>(false)
+  // Flag to prevent multiple concurrent offer creation attempts
+  const isCreatingOfferRef = useRef<boolean>(false)
 
   // Clean up media streams and peer connection
   const cleanup = useCallback(() => {
@@ -51,6 +54,7 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
     setRemoteStream(null)
     iceCandidateQueueRef.current = []
     isInitiatorRef.current = false
+    isCreatingOfferRef.current = false
 
     setCallState({
       status: 'idle',
@@ -58,6 +62,22 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
       isMuted: false,
       isVideoEnabled: false
     })
+  }, [])
+
+  // Helper function to process queued ICE candidates
+  const processIceCandidateQueue = useCallback(async (peerConnection: RTCPeerConnection) => {
+    if (iceCandidateQueueRef.current.length === 0) return
+    
+    console.log('[WebRTC] Processing', iceCandidateQueueRef.current.length, 'queued ICE candidates')
+    for (const candidateInit of iceCandidateQueueRef.current) {
+      try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidateInit))
+      } catch (error) {
+        console.error('[WebRTC] Failed to add queued ICE candidate:', error)
+        // Continue processing remaining candidates even if one fails
+      }
+    }
+    iceCandidateQueueRef.current = []
   }, [])
 
   // Initialize peer connection
@@ -137,9 +157,14 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
       // Handle negotiation needed (for renegotiation scenarios)
       peerConnection.onnegotiationneeded = async () => {
         console.log('[WebRTC] Negotiation needed, isInitiator:', isInitiatorRef.current)
+        
         // Only the initiator should create offers on renegotiation
-        if (isInitiatorRef.current && peerConnection.signalingState === 'stable') {
+        // Also check if we're already creating an offer to prevent multiple concurrent attempts
+        if (isInitiatorRef.current && 
+            peerConnection.signalingState === 'stable' && 
+            !isCreatingOfferRef.current) {
           try {
+            isCreatingOfferRef.current = true
             console.log('[WebRTC] Creating new offer due to negotiation needed')
             const offer = await peerConnection.createOffer()
             await peerConnection.setLocalDescription(offer)
@@ -148,6 +173,8 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
             }
           } catch (error) {
             console.error('[WebRTC] Error during renegotiation:', error)
+          } finally {
+            isCreatingOfferRef.current = false
           }
         }
       }
@@ -157,6 +184,7 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
       console.error('[WebRTC] Error initializing peer connection:', error)
       throw error
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remoteUser, cleanup])
 
   // Initiate a call (caller side)
@@ -278,11 +306,7 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
           console.log('[WebRTC] Remote description set from offer')
 
           // Process any queued ICE candidates
-          console.log('[WebRTC] Processing', iceCandidateQueueRef.current.length, 'queued ICE candidates')
-          for (const candidate of iceCandidateQueueRef.current) {
-            await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate))
-          }
-          iceCandidateQueueRef.current = []
+          await processIceCandidateQueue(peerConnectionRef.current)
 
           // Create answer
           console.log('[WebRTC] Creating answer')
@@ -302,11 +326,7 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
           console.log('[WebRTC] Remote description set from answer')
 
           // Process any queued ICE candidates
-          console.log('[WebRTC] Processing', iceCandidateQueueRef.current.length, 'queued ICE candidates')
-          for (const candidate of iceCandidateQueueRef.current) {
-            await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate))
-          }
-          iceCandidateQueueRef.current = []
+          await processIceCandidateQueue(peerConnectionRef.current)
         } else if (data.signalType === 'ice-candidate') {
           // Handle ICE candidate
           const candidate = new RTCIceCandidate(data.signal as RTCIceCandidateInit)
@@ -354,7 +374,7 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
       socketService.off('webrtc-signal', handleWebRTCSignal)
       socketService.off('call-accepted', handleCallAccepted)
     }
-  }, [remoteUser])
+  }, [remoteUser, processIceCandidateQueue])
 
   // Cleanup on unmount
   useEffect(() => {
