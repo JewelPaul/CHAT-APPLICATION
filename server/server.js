@@ -11,7 +11,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
-const { sanitizeMessage, validateUserCode, validateMessage, Logger } = require('./utils');
+const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMessage, validateMediaUpload, calculateBase64Size, Logger } = require('./utils');
 const { version } = require('../package.json');
 
 const logger = new Logger(process.env.LOG_LEVEL || 'info');
@@ -67,6 +67,35 @@ const pendingInvites = new Map();
 // In-memory media storage (files never written to disk)
 const mediaStorage = new Map(); // mediaId -> { data, type, filename, size, timestamp }
 
+// Rate limiting for media uploads (max 5 uploads per minute per user)
+const uploadRateLimit = new Map(); // userCode -> { count, resetTime }
+const UPLOAD_RATE_LIMIT = 5;
+const UPLOAD_RATE_WINDOW = 60000; // 1 minute
+
+/**
+ * Check and update rate limit for uploads
+ */
+function checkUploadRateLimit(userCode) {
+    const now = Date.now();
+    const userLimit = uploadRateLimit.get(userCode);
+    
+    if (!userLimit || now > userLimit.resetTime) {
+        // Reset or create new limit
+        uploadRateLimit.set(userCode, {
+            count: 1,
+            resetTime: now + UPLOAD_RATE_WINDOW
+        });
+        return true;
+    }
+    
+    if (userLimit.count >= UPLOAD_RATE_LIMIT) {
+        return false;
+    }
+    
+    userLimit.count++;
+    return true;
+}
+
 /**
  * Generate unique room ID for two users
  */
@@ -88,6 +117,9 @@ function cleanupUser(socketId) {
         
         // Clean up pending invites
         pendingInvites.delete(userCode);
+        
+        // Clean up rate limiting
+        uploadRateLimit.delete(userCode);
         
         // Clean up chat rooms where this user participated
         for (const [roomId, room] of chatRooms.entries()) {
@@ -314,19 +346,58 @@ io.on('connection', (socket) => {
     });
 
     // Handle media sharing (in-memory only)
-    socket.on('media-upload', ({ to, roomId, mediaData, filename, mimeType }) => {
-        const senderCode = sockets.get(socket.id);
-        if (!senderCode) {
-            socket.emit('media-error', { error: 'Not registered' });
-            return;
-        }
+    socket.on('media-upload', (data) => {
+        try {
+            const senderCode = sockets.get(socket.id);
+            if (!senderCode) {
+                socket.emit('media-error', { error: 'Not registered' });
+                return;
+            }
 
-        const targetUser = users.get(to);
-        const room = chatRooms.get(roomId);
-        
-        if (targetUser && room && 
-            (room.user1 === senderCode || room.user2 === senderCode) &&
-            (room.user1 === to || room.user2 === to)) {
+            // Check rate limit
+            if (!checkUploadRateLimit(senderCode)) {
+                socket.emit('media-error', { 
+                    error: `Upload rate limit exceeded. Please wait before uploading more files (max ${UPLOAD_RATE_LIMIT} per minute).` 
+                });
+                logger.warn('Upload rate limit exceeded', { from: senderCode });
+                return;
+            }
+
+            if (!data || typeof data !== 'object') {
+                socket.emit('media-error', { error: 'Invalid upload data' });
+                return;
+            }
+
+            const { to, roomId, mediaData, filename, mimeType } = data;
+
+            // Validate file upload
+            const validation = validateMediaUpload({ mediaData, filename, mimeType });
+            if (!validation.valid) {
+                socket.emit('media-error', { error: validation.error });
+                logger.warn('Invalid media upload attempt', { 
+                    from: senderCode, 
+                    error: validation.error,
+                    mimeType,
+                    size: mediaData ? mediaData.length : 0
+                });
+                return;
+            }
+
+            // Use calculated size from validation
+            const sizeInBytes = validation.size;
+
+            // Sanitize filename
+            const safeFilename = sanitizeFilename(filename);
+
+            const targetUser = users.get(to);
+            const room = chatRooms.get(roomId);
+            
+            if (!targetUser || !room || 
+                (room.user1 !== senderCode && room.user2 !== senderCode) ||
+                (room.user1 !== to && room.user2 !== to)) {
+                socket.emit('media-error', { error: 'Invalid media recipient or room' });
+                return;
+            }
             
             // Store media in memory (never written to disk)
             const mediaId = `media_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -334,8 +405,8 @@ io.on('connection', (socket) => {
             mediaStorage.set(mediaId, {
                 data: mediaData,
                 type: mimeType,
-                filename: filename,
-                size: mediaData.length,
+                filename: safeFilename,
+                size: sizeInBytes,
                 timestamp: new Date(),
                 roomId: roomId
             });
@@ -346,9 +417,9 @@ io.on('connection', (socket) => {
                 from: senderCode,
                 to: to,
                 mediaId: mediaId,
-                filename: filename,
+                filename: safeFilename,
                 mimeType: mimeType,
-                size: mediaData.length,
+                size: sizeInBytes,
                 timestamp: new Date(),
                 type: 'media'
             };
@@ -356,18 +427,28 @@ io.on('connection', (socket) => {
             room.messages.push(messageData);
             room.media.add(mediaId);
             
-            // Forward to recipient (without raw data)
+            // Forward to recipient (with data for immediate display)
             io.to(targetUser.socketId).emit('media-message', {
                 ...messageData,
-                mediaData: mediaData // Include data for immediate display
+                mediaData: mediaData
             });
             
             // Confirm to sender
-            socket.emit('media-sent', messageData);
+            socket.emit('media-sent', {
+                ...messageData,
+                mediaData: mediaData
+            });
             
-            console.log(`[MEDIA] ${senderCode} -> ${to}: ${filename} (${(mediaData.length/1024).toFixed(1)}KB)`);
-        } else {
-            socket.emit('media-error', { error: 'Invalid media recipient or room' });
+            logger.info('Media uploaded', { 
+                from: senderCode, 
+                to, 
+                filename: safeFilename,
+                mimeType,
+                size: `${(sizeInBytes/1024).toFixed(1)}KB` 
+            });
+        } catch (error) {
+            logger.error('Error in media-upload handler', { error: error.message, socketId: socket.id });
+            socket.emit('media-error', { error: 'Failed to upload media' });
         }
     });
 
@@ -435,6 +516,150 @@ io.on('connection', (socket) => {
     socket.on('disconnect', (reason) => {
         logger.info('Socket disconnected', { socketId: socket.id, reason });
         cleanupUser(socket.id);
+    });
+
+    // WebRTC Call Signaling
+    socket.on('call-initiate', (data) => {
+        try {
+            const callerCode = sockets.get(socket.id);
+            if (!callerCode) {
+                socket.emit('call-error', { error: 'Not registered' });
+                return;
+            }
+
+            if (!data || typeof data !== 'object' || !data.to || !data.type) {
+                socket.emit('call-error', { error: 'Invalid call data' });
+                return;
+            }
+
+            const { to, type } = data;
+            const targetUser = users.get(to);
+
+            if (!targetUser) {
+                socket.emit('call-error', { error: 'User not available for call' });
+                return;
+            }
+
+            // Forward call initiation to target user
+            io.to(targetUser.socketId).emit('call-incoming', {
+                from: callerCode,
+                type,
+                deviceName: users.get(callerCode).deviceName
+            });
+
+            logger.info('Call initiated', { from: callerCode, to, type });
+        } catch (error) {
+            logger.error('Error in call-initiate handler', { error: error.message });
+            socket.emit('call-error', { error: 'Failed to initiate call' });
+        }
+    });
+
+    socket.on('call-accept', (data) => {
+        try {
+            const accepterCode = sockets.get(socket.id);
+            if (!accepterCode || !data || !data.from) {
+                socket.emit('call-error', { error: 'Invalid call accept' });
+                return;
+            }
+
+            const { from } = data;
+            const callerUser = users.get(from);
+
+            if (!callerUser) {
+                socket.emit('call-error', { error: 'Caller not found' });
+                return;
+            }
+
+            // Notify caller that call was accepted
+            io.to(callerUser.socketId).emit('call-accepted', {
+                from: accepterCode,
+                deviceName: users.get(accepterCode).deviceName
+            });
+
+            logger.info('Call accepted', { caller: from, accepter: accepterCode });
+        } catch (error) {
+            logger.error('Error in call-accept handler', { error: error.message });
+            socket.emit('call-error', { error: 'Failed to accept call' });
+        }
+    });
+
+    socket.on('call-reject', (data) => {
+        try {
+            const rejecterCode = sockets.get(socket.id);
+            if (!rejecterCode || !data || !data.from) {
+                return;
+            }
+
+            const { from } = data;
+            const callerUser = users.get(from);
+
+            if (callerUser) {
+                io.to(callerUser.socketId).emit('call-rejected', {
+                    from: rejecterCode
+                });
+            }
+
+            logger.info('Call rejected', { caller: from, rejecter: rejecterCode });
+        } catch (error) {
+            logger.error('Error in call-reject handler', { error: error.message });
+        }
+    });
+
+    socket.on('call-end', (data) => {
+        try {
+            const userCode = sockets.get(socket.id);
+            if (!userCode || !data || !data.to) {
+                return;
+            }
+
+            const { to } = data;
+            const targetUser = users.get(to);
+
+            if (targetUser) {
+                io.to(targetUser.socketId).emit('call-ended', {
+                    from: userCode
+                });
+            }
+
+            logger.info('Call ended', { from: userCode, to });
+        } catch (error) {
+            logger.error('Error in call-end handler', { error: error.message });
+        }
+    });
+
+    // WebRTC signaling (SDP offer/answer, ICE candidates)
+    socket.on('webrtc-signal', (data) => {
+        try {
+            const senderCode = sockets.get(socket.id);
+            if (!senderCode || !data || !data.to || !data.signal) {
+                socket.emit('call-error', { error: 'Invalid WebRTC signal' });
+                return;
+            }
+
+            const { to, signal, signalType } = data;
+            const targetUser = users.get(to);
+
+            if (!targetUser) {
+                socket.emit('call-error', { error: 'Target user not found' });
+                return;
+            }
+
+            // Forward WebRTC signal to target user
+            io.to(targetUser.socketId).emit('webrtc-signal', {
+                from: senderCode,
+                signal,
+                signalType
+            });
+
+            logger.debug('WebRTC signal forwarded', { 
+                from: senderCode, 
+                to, 
+                signalType 
+            });
+        } catch (error) {
+            logger.error('Error in webrtc-signal handler', { error: error.message });
+            socket.emit('call-error', { error: 'Failed to forward signal' });
+        }
     });
 });
 

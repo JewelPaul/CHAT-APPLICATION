@@ -78,20 +78,54 @@ export function fileToBase64(file: File): Promise<string> {
 
 // Validate file for upload
 export function validateFile(file: File): { valid: boolean; error?: string } {
-  const maxSize = 5 * 1024 * 1024 // 5MB
-  const allowedTypes = [
-    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-    'video/mp4', 'video/webm', 'video/quicktime',
-    'audio/mp3', 'audio/wav', 'audio/ogg',
-    'application/pdf', 'text/plain'
-  ]
-  
-  if (file.size > maxSize) {
-    return { valid: false, error: 'File size must be less than 5MB' }
+  // Size limits based on type
+  const maxSizes = {
+    image: 5 * 1024 * 1024,      // 5MB for images
+    video: 10 * 1024 * 1024,     // 10MB for videos
+    audio: 5 * 1024 * 1024,      // 5MB for audio
+    document: 10 * 1024 * 1024   // 10MB for documents
   }
   
+  const allowedTypes = [
+    // Images
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+    // Videos
+    'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo',
+    // Audio
+    'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/aac',
+    // Documents
+    'application/pdf', 'text/plain', 'text/csv',
+    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ]
+  
+  // Check file type
   if (!allowedTypes.includes(file.type)) {
-    return { valid: false, error: 'File type not supported' }
+    return { 
+      valid: false, 
+      error: `File type ${file.type || 'unknown'} not supported. Allowed: images, short videos, audio, PDF, and common documents.` 
+    }
+  }
+  
+  // Determine max size based on type
+  let maxSize = maxSizes.document
+  if (file.type.startsWith('image/')) {
+    maxSize = maxSizes.image
+  } else if (file.type.startsWith('video/')) {
+    maxSize = maxSizes.video
+  } else if (file.type.startsWith('audio/')) {
+    maxSize = maxSizes.audio
+  }
+  
+  // Check file size
+  if (file.size > maxSize) {
+    const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(1)
+    return { valid: false, error: `File size exceeds ${maxSizeMB}MB limit` }
+  }
+  
+  // Check filename length
+  if (file.name.length > 255) {
+    return { valid: false, error: 'Filename too long (max 255 characters)' }
   }
   
   return { valid: true }

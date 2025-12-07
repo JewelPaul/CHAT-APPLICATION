@@ -143,6 +143,23 @@ export function useChat() {
       })
     }
 
+    const handleMediaSent = (message: Message) => {
+      setCurrentChat(prev => {
+        if (prev) {
+          return {
+            ...prev,
+            messages: [...prev.messages, message]
+          }
+        }
+        return prev
+      })
+      addNotification('success', 'File sent successfully!')
+    }
+
+    const handleMediaError = (data: { error: string }) => {
+      addNotification('error', data.error || 'Failed to send file')
+    }
+
     const handleTypingStart = (data: { from: string }) => {
       if (data.from !== user?.code) {
         setIsTyping(true)
@@ -179,6 +196,8 @@ export function useChat() {
     socketService.on('message', handleMessage)
     socketService.on('message-sent', handleMessageSent)
     socketService.on('media-message', handleMediaMessage)
+    socketService.on('media-sent', handleMediaSent)
+    socketService.on('media-error', handleMediaError)
     socketService.on('typing-start', handleTypingStart)
     socketService.on('typing-stop', handleTypingStop)
     socketService.on('user-disconnected', handleUserDisconnected)
@@ -194,6 +213,8 @@ export function useChat() {
       socketService.off('message', handleMessage)
       socketService.off('message-sent', handleMessageSent)
       socketService.off('media-message', handleMediaMessage)
+      socketService.off('media-sent', handleMediaSent)
+      socketService.off('media-error', handleMediaError)
       socketService.off('typing-start', handleTypingStart)
       socketService.off('typing-stop', handleTypingStop)
       socketService.off('user-disconnected', handleUserDisconnected)

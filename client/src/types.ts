@@ -44,3 +44,23 @@ export interface Notification {
   message: string
   duration?: number
 }
+
+export type CallType = 'audio' | 'video'
+
+export type CallStatus = 'idle' | 'calling' | 'incoming' | 'active' | 'ended'
+
+export interface CallState {
+  status: CallStatus
+  type: CallType
+  isMuted: boolean
+  isVideoEnabled: boolean
+  remoteUser?: User
+}
+
+export interface CallSignal {
+  from: string
+  to: string
+  type: CallType
+  signal?: RTCSessionDescriptionInit | RTCIceCandidateInit
+  signalType?: 'offer' | 'answer' | 'ice-candidate'
+}

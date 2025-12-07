@@ -1,4 +1,5 @@
-import { Download, FileText, Image, Video, Music, File } from 'lucide-react'
+import { Download, FileText, Image, Video, Music, File, X, ZoomIn } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { formatFileSize, formatTimeAgo } from '../utils'
 import type { Message } from '../types'
 
@@ -9,6 +10,24 @@ interface MessageProps {
 }
 
 export function MessageComponent({ message, isSent, senderName }: MessageProps) {
+  const [showImageModal, setShowImageModal] = useState(false)
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showImageModal) {
+        setShowImageModal(false)
+      }
+    }
+
+    if (showImageModal) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown)
+      }
+    }
+  }, [showImageModal])
+
   const getFileIcon = (mimeType?: string) => {
     if (!mimeType) return <File className="w-5 h-5" />
     
@@ -38,14 +57,52 @@ export function MessageComponent({ message, isSent, senderName }: MessageProps) 
 
     if (message.mimeType.startsWith('image/')) {
       return (
-        <div className="max-w-xs">
-          <img
-            src={dataUrl}
-            alt={message.filename}
-            className="rounded-lg max-w-full h-auto"
-            loading="lazy"
-          />
-        </div>
+        <>
+          <div className="max-w-xs relative group">
+            <img
+              src={dataUrl}
+              alt={message.filename}
+              className="rounded-lg max-w-full h-auto cursor-pointer"
+              loading="lazy"
+              onClick={() => setShowImageModal(true)}
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer"
+                 onClick={() => setShowImageModal(true)}>
+              <ZoomIn className="w-8 h-8 text-white" />
+            </div>
+          </div>
+          
+          {/* Image Modal */}
+          {showImageModal && (
+            <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center p-4"
+                 onClick={() => setShowImageModal(false)}>
+              <button
+                className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+                onClick={() => setShowImageModal(false)}
+              >
+                <X className="w-8 h-8" />
+              </button>
+              <img
+                src={dataUrl}
+                alt={message.filename}
+                className="max-w-full max-h-full object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <div className="absolute bottom-4 left-0 right-0 text-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDownload()
+                  }}
+                  className="bg-white text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors inline-flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )
     }
 
