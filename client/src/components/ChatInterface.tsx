@@ -6,13 +6,15 @@ import {
   User as UserIcon, 
   AlertTriangle, 
   MoreVertical,
-  X
+  X,
+  Phone,
+  Video
 } from 'lucide-react'
 import { MessageComponent } from './Message'
 import { fileToBase64, validateFile } from '../utils'
 import { useNotifications } from './NotificationProvider'
 import socketService from '../socket'
-import type { User, Message } from '../types'
+import type { User, Message, CallType } from '../types'
 
 interface ChatInterfaceProps {
   user: User | null
@@ -28,6 +30,7 @@ interface ChatInterfaceProps {
   onSendTypingStop: () => void
   onDisconnect: () => void
   onBackToWelcome: () => void
+  onInitiateCall?: (type: CallType) => void
 }
 
 export function ChatInterface({
@@ -39,7 +42,8 @@ export function ChatInterface({
   onSendTypingStart,
   onSendTypingStop,
   onDisconnect,
-  onBackToWelcome
+  onBackToWelcome,
+  onInitiateCall
 }: ChatInterfaceProps) {
   const [message, setMessage] = useState('')
   const [isUploading, setIsUploading] = useState(false)
@@ -174,6 +178,27 @@ export function ChatInterface({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Call Controls */}
+            {onInitiateCall && (
+              <>
+                <button
+                  onClick={() => onInitiateCall('audio')}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  title="Audio call"
+                >
+                  <Phone className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+                
+                <button
+                  onClick={() => onInitiateCall('video')}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  title="Video call"
+                >
+                  <Video className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </>
+            )}
+
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}

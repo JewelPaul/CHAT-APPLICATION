@@ -62,7 +62,13 @@ class SocketService {
       'media-data',
       'typing-start',
       'typing-stop',
-      'user-disconnected'
+      'user-disconnected',
+      'call-incoming',
+      'call-accepted',
+      'call-rejected',
+      'call-ended',
+      'call-error',
+      'webrtc-signal'
     ]
 
     events.forEach(event => {
@@ -111,6 +117,27 @@ class SocketService {
 
   sendTypingStop(to: string, roomId: string): void {
     this.socket?.emit('typing-stop', { to, roomId })
+  }
+
+  // Call signaling methods
+  initiateCall(to: string, type: 'audio' | 'video'): void {
+    this.socket?.emit('call-initiate', { to, type })
+  }
+
+  acceptCall(from: string): void {
+    this.socket?.emit('call-accept', { from })
+  }
+
+  rejectCall(from: string): void {
+    this.socket?.emit('call-reject', { from })
+  }
+
+  endCall(to: string): void {
+    this.socket?.emit('call-end', { to })
+  }
+
+  sendWebRTCSignal(to: string, signal: RTCSessionDescriptionInit | RTCIceCandidateInit, signalType: 'offer' | 'answer' | 'ice-candidate'): void {
+    this.socket?.emit('webrtc-signal', { to, signal, signalType })
   }
 
   // Event listener management
