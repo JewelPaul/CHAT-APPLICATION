@@ -1,5 +1,5 @@
 import { Download, FileText, Image, Video, Music, File, X, ZoomIn } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { formatFileSize, formatTimeAgo } from '../utils'
 import type { Message } from '../types'
 
@@ -11,6 +11,22 @@ interface MessageProps {
 
 export function MessageComponent({ message, isSent, senderName }: MessageProps) {
   const [showImageModal, setShowImageModal] = useState(false)
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showImageModal) {
+        setShowImageModal(false)
+      }
+    }
+
+    if (showImageModal) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown)
+      }
+    }
+  }, [showImageModal])
 
   const getFileIcon = (mimeType?: string) => {
     if (!mimeType) return <File className="w-5 h-5" />

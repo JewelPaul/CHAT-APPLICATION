@@ -69,18 +69,34 @@ function sanitizeFilename(filename) {
   
   // Limit length
   if (safe.length > 255) {
-    const ext = safe.split('.').pop();
-    const name = safe.substring(0, 250 - ext.length);
-    safe = `${name}.${ext}`;
+    const parts = safe.split('.');
+    const ext = parts.length > 1 ? parts.pop() : '';
+    const name = parts.join('.');
+    
+    if (ext) {
+      const maxNameLength = 250 - ext.length - 1; // -1 for the dot
+      safe = `${name.substring(0, maxNameLength)}.${ext}`;
+    } else {
+      safe = safe.substring(0, 255);
+    }
   }
   
   return safe || 'unnamed_file';
 }
 
 /**
+ * Calculate base64 decoded size in bytes
+ * @param {string} base64String - Base64 encoded string
+ * @returns {number} - Size in bytes
+ */
+function calculateBase64Size(base64String) {
+  return Math.ceil((base64String.length * 3) / 4);
+}
+
+/**
  * Validate media file upload
  * @param {Object} fileData - File data object
- * @returns {Object} - { valid: boolean, error?: string }
+ * @returns {Object} - { valid: boolean, error?: string, size?: number }
  */
 function validateMediaUpload(fileData) {
   const { mediaData, filename, mimeType } = fileData;
@@ -109,7 +125,7 @@ function validateMediaUpload(fileData) {
   }
   
   // Calculate size (base64 encoded size)
-  const sizeInBytes = Math.ceil((mediaData.length * 3) / 4);
+  const sizeInBytes = calculateBase64Size(mediaData);
   
   // Size limits based on type
   const maxSizes = {
@@ -138,7 +154,7 @@ function validateMediaUpload(fileData) {
     return { valid: false, error: 'Filename too long (max 255 characters)' };
   }
   
-  return { valid: true };
+  return { valid: true, size: sizeInBytes };
 }
 
 /**
@@ -181,5 +197,6 @@ module.exports = {
   validateUserCode,
   validateMessage,
   validateMediaUpload,
+  calculateBase64Size,
   Logger
 };

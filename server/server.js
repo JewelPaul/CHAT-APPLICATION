@@ -11,7 +11,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
-const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMessage, validateMediaUpload, Logger } = require('./utils');
+const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMessage, validateMediaUpload, calculateBase64Size, Logger } = require('./utils');
 const { version } = require('../package.json');
 
 const logger = new Logger(process.env.LOG_LEVEL || 'info');
@@ -383,6 +383,9 @@ io.on('connection', (socket) => {
                 return;
             }
 
+            // Use calculated size from validation
+            const sizeInBytes = validation.size;
+
             // Sanitize filename
             const safeFilename = sanitizeFilename(filename);
 
@@ -398,9 +401,6 @@ io.on('connection', (socket) => {
             
             // Store media in memory (never written to disk)
             const mediaId = `media_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            
-            // Calculate actual size
-            const sizeInBytes = Math.ceil((mediaData.length * 3) / 4);
             
             mediaStorage.set(mediaId, {
                 data: mediaData,
