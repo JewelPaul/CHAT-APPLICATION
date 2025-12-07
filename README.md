@@ -325,6 +325,16 @@ ChatWave includes WebRTC-powered one-to-one audio and video calls:
 
 ### Troubleshooting Calls
 
+**No remote video/audio (users only see themselves):**
+- **Root Cause**: This was a timing issue in the WebRTC signaling flow where the offer was sent before the receiver's peer connection was initialized
+- **Fixed**: Offer is now sent only after the receiver accepts the call and confirms readiness
+- **Verify**: Open browser console (F12) and look for `[WebRTC]` logs. You should see:
+  - "Call accepted by remote peer" in caller's console
+  - "Creating offer after acceptance" message
+  - "Received remote track: audio" and/or "video" in both consoles
+  - "Connection state: connected" in both consoles
+- **Still not working?** Check browser console for errors and verify both users granted permissions
+
 **Permission denied errors:**
 - Check browser settings for camera/microphone access
 - Click the lock icon in address bar to manage permissions
@@ -339,6 +349,14 @@ ChatWave includes WebRTC-powered one-to-one audio and video calls:
 - Ensure both users have granted required permissions
 - Check firewall settings (WebRTC uses UDP)
 - Try refreshing the page and reconnecting
+- Open browser console to check for WebRTC errors
+
+**Debugging with Browser Console:**
+1. Press F12 to open Developer Tools
+2. Go to Console tab
+3. Look for `[WebRTC]` prefixed messages
+4. Check for errors (shown in red)
+5. Verify the signaling flow: initiate → accept → offer → answer → ICE exchange → connected
 
 ## 🔐 Privacy & Security Notes
 

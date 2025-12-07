@@ -83,42 +83,76 @@ Thank you for your interest in contributing to ChatWave! This document provides 
 
 **Expected:** "Upload rate limit exceeded" error after 5 uploads.
 
-#### 10. Audio Call
+#### 10. Audio Call (Remote Media Validation)
 1. In an active chat, click the phone icon
-2. Grant microphone permission when prompted
-3. Accept the incoming call in the other tab
-4. Grant microphone permission in second tab
-5. Test the mute/unmute button
-6. Test the end call button
+2. Grant microphone permission when prompted (check browser console for permission grants)
+3. **Verify local audio is being captured** (check browser tab title for mic indicator)
+4. Accept the incoming call in the other tab
+5. Grant microphone permission in second tab
+6. **Wait 2-5 seconds for WebRTC connection to establish**
+7. **Verify remote audio is heard**: Speak into mic in Tab 1, listen in Tab 2 and vice versa
+8. Test the mute/unmute button - verify other user can no longer hear you when muted
+9. Test the end call button
 
 **Expected:**
 - Call initiates successfully
-- Incoming call modal appears
-- Audio connection establishes
-- Mute button works
-- Call ends cleanly
+- Incoming call modal appears with correct caller name
+- **Both users can hear each other clearly** (two-way audio)
+- Mute button works - remote user doesn't hear audio when muted
+- Call UI shows "Connected" status
+- Call ends cleanly without errors
 
-#### 11. Video Call
+**Browser Console Debugging:**
+- Look for `[WebRTC]` prefixed log messages
+- Verify "Call accepted by remote peer" message
+- Verify "Creating offer after acceptance" message
+- Verify "Remote description set from answer" message
+- Verify "Received remote track: audio" message
+- Verify "Connection state: connected" message
+- Check for any red error messages
+
+#### 11. Video Call (Remote Media Validation)
 1. In an active chat, click the video icon
 2. Grant camera and microphone permissions
-3. Accept the incoming call in the other tab
-4. Grant camera and microphone permissions
-5. Verify both local and remote video streams appear
-6. Test mute, camera toggle, and end call buttons
+3. **Verify local video preview appears** (you should see yourself in small PIP window)
+4. Accept the incoming call in the other tab
+5. Grant camera and microphone permissions
+6. **Wait 2-5 seconds for WebRTC connection to establish**
+7. **Verify both local and remote video streams appear:**
+   - Large video shows remote user's camera feed
+   - Small PIP (top-right) shows your own camera (mirrored)
+8. **Verify remote audio is heard**: Speak into mic in Tab 1, listen in Tab 2 and vice versa
+9. Test mute button - verify other user can no longer hear you
+10. Test camera toggle button - verify your video disappears from other user's screen
+11. Test end call button
 
 **Expected:**
 - Video call initiates successfully
-- Both video streams visible
-- Picture-in-Picture local video appears
+- **Both video streams visible and flowing** (two-way video)
+- **Both audio streams working** (two-way audio)
+- Picture-in-Picture local video appears in top-right corner (mirrored)
+- Remote video fills main screen
 - All controls function properly
+- Connection status shows "Connected"
 - Call ends cleanly
+
+**Browser Console Debugging:**
+- Look for `[WebRTC]` prefixed log messages
+- Verify "Got local stream with tracks: ['audio', 'video']" message
+- Verify "Received remote track: audio" and "Received remote track: video" messages
+- Verify "Setting remote stream with 2 tracks" message
+- Verify "Connection state: connected" message
+- Check ICE candidate exchange: "Generated ICE candidate" and "Adding ICE candidate"
+- Look for any permission errors or red error messages
 
 #### 12. Call Rejection
 1. Initiate a call from Tab 1
 2. Click "Decline" in Tab 2's incoming call modal
 3. Verify "Call declined" notification in Tab 1
+4. Verify no media permissions are requested in Tab 2
+5. Verify chat interface remains functional
 
-**Expected:** Call rejected, caller notified.
+**Expected:** Call rejected, caller notified, no connection established.
 
 #### 13. Permission Denied Handling
 1. Click phone or video icon
@@ -140,6 +174,50 @@ Thank you for your interest in contributing to ChatWave! This document provides 
 3. Verify all data is lost (ephemeral design)
 
 **Expected:** No messages or files persist after refresh.
+
+#### 16. WebRTC Connection Troubleshooting
+This test validates the WebRTC signaling flow and helps debug connection issues.
+
+1. Open browser DevTools Console in both tabs (F12)
+2. Initiate a video call from Tab 1
+3. **In Tab 1 console**, verify you see:
+   - `[WebRTC] Initiating video call to [code]`
+   - `[WebRTC] Got local stream with tracks: ['audio', 'video']`
+   - `[WebRTC] Call initiation sent, waiting for acceptance`
+4. Accept the call in Tab 2
+5. **In Tab 2 console**, verify you see:
+   - `[WebRTC] Accepting video call from [code]`
+   - `[WebRTC] Got local stream with tracks: ['audio', 'video']`
+   - `[WebRTC] Call accepted, peer connection ready for offer`
+6. **In Tab 1 console**, verify you see:
+   - `[WebRTC] Call accepted by remote peer`
+   - `[WebRTC] Creating offer after acceptance`
+   - `[WebRTC] Offer sent to remote peer`
+7. **In Tab 2 console**, verify you see:
+   - `[WebRTC] Received signal: offer from [code]`
+   - `[WebRTC] Answer sent`
+8. **In both consoles**, verify you see:
+   - Multiple `[WebRTC] Generated ICE candidate` messages
+   - Multiple `[WebRTC] Adding ICE candidate` messages
+   - `[WebRTC] ICE connection state: checking`
+   - `[WebRTC] ICE connection state: connected`
+   - `[WebRTC] Connection state: connected`
+   - `[WebRTC] Received remote track: audio`
+   - `[WebRTC] Received remote track: video` (for video calls)
+   - `[WebRTC] Setting remote stream with 2 tracks` (for video calls)
+
+**Expected:**
+- Clean signaling flow with no errors
+- Offer is sent AFTER call acceptance (not before)
+- Both peers receive remote tracks
+- Connection state reaches "connected"
+- No "Received signal but no peer connection exists" warnings
+
+**Common Issues:**
+- **No remote video/audio**: Check for "Received remote track" messages
+- **Permission errors**: Grant camera/mic permissions when prompted
+- **ICE failures**: Check firewall settings, verify STUN servers are reachable
+- **Timing issues**: Verify offer is sent after acceptance, not before
 
 ## Security Testing
 
