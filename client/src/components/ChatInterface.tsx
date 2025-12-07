@@ -11,6 +11,7 @@ import {
 import { MessageComponent } from './Message'
 import { fileToBase64, validateFile } from '../utils'
 import { useNotifications } from './NotificationProvider'
+import socketService from '../socket'
 import type { User, Message } from '../types'
 
 interface ChatInterfaceProps {
@@ -107,9 +108,18 @@ export function ChatInterface({
     setIsUploading(true)
     
     try {
-      await fileToBase64(file)
-      // TODO: Implement file upload through socket
-      addNotification('info', 'File sharing will be implemented in the next update')
+      const base64Data = await fileToBase64(file)
+      
+      // Send media upload through socket
+      socketService.sendMediaUpload(
+        chat.user.code,
+        chat.roomId,
+        base64Data,
+        file.name,
+        file.type
+      )
+      
+      addNotification('success', `Uploading ${file.name}...`)
     } catch (error) {
       console.error('File upload error:', error)
       addNotification('error', 'Failed to upload file')

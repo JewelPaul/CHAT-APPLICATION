@@ -11,7 +11,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
-const { sanitizeMessage, validateUserCode, validateMessage, Logger } = require('./utils');
+const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMessage, validateMediaUpload, Logger } = require('./utils');
 const { version } = require('../package.json');
 
 const logger = new Logger(process.env.LOG_LEVEL || 'info');
@@ -314,28 +314,58 @@ io.on('connection', (socket) => {
     });
 
     // Handle media sharing (in-memory only)
-    socket.on('media-upload', ({ to, roomId, mediaData, filename, mimeType }) => {
-        const senderCode = sockets.get(socket.id);
-        if (!senderCode) {
-            socket.emit('media-error', { error: 'Not registered' });
-            return;
-        }
+    socket.on('media-upload', (data) => {
+        try {
+            const senderCode = sockets.get(socket.id);
+            if (!senderCode) {
+                socket.emit('media-error', { error: 'Not registered' });
+                return;
+            }
 
-        const targetUser = users.get(to);
-        const room = chatRooms.get(roomId);
-        
-        if (targetUser && room && 
-            (room.user1 === senderCode || room.user2 === senderCode) &&
-            (room.user1 === to || room.user2 === to)) {
+            if (!data || typeof data !== 'object') {
+                socket.emit('media-error', { error: 'Invalid upload data' });
+                return;
+            }
+
+            const { to, roomId, mediaData, filename, mimeType } = data;
+
+            // Validate file upload
+            const validation = validateMediaUpload({ mediaData, filename, mimeType });
+            if (!validation.valid) {
+                socket.emit('media-error', { error: validation.error });
+                logger.warn('Invalid media upload attempt', { 
+                    from: senderCode, 
+                    error: validation.error,
+                    mimeType,
+                    size: mediaData ? mediaData.length : 0
+                });
+                return;
+            }
+
+            // Sanitize filename
+            const safeFilename = sanitizeFilename(filename);
+
+            const targetUser = users.get(to);
+            const room = chatRooms.get(roomId);
+            
+            if (!targetUser || !room || 
+                (room.user1 !== senderCode && room.user2 !== senderCode) ||
+                (room.user1 !== to && room.user2 !== to)) {
+                socket.emit('media-error', { error: 'Invalid media recipient or room' });
+                return;
+            }
             
             // Store media in memory (never written to disk)
             const mediaId = `media_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             
+            // Calculate actual size
+            const sizeInBytes = Math.ceil((mediaData.length * 3) / 4);
+            
             mediaStorage.set(mediaId, {
                 data: mediaData,
                 type: mimeType,
-                filename: filename,
-                size: mediaData.length,
+                filename: safeFilename,
+                size: sizeInBytes,
                 timestamp: new Date(),
                 roomId: roomId
             });
@@ -346,9 +376,9 @@ io.on('connection', (socket) => {
                 from: senderCode,
                 to: to,
                 mediaId: mediaId,
-                filename: filename,
+                filename: safeFilename,
                 mimeType: mimeType,
-                size: mediaData.length,
+                size: sizeInBytes,
                 timestamp: new Date(),
                 type: 'media'
             };
@@ -356,18 +386,28 @@ io.on('connection', (socket) => {
             room.messages.push(messageData);
             room.media.add(mediaId);
             
-            // Forward to recipient (without raw data)
+            // Forward to recipient (with data for immediate display)
             io.to(targetUser.socketId).emit('media-message', {
                 ...messageData,
-                mediaData: mediaData // Include data for immediate display
+                mediaData: mediaData
             });
             
             // Confirm to sender
-            socket.emit('media-sent', messageData);
+            socket.emit('media-sent', {
+                ...messageData,
+                mediaData: mediaData
+            });
             
-            console.log(`[MEDIA] ${senderCode} -> ${to}: ${filename} (${(mediaData.length/1024).toFixed(1)}KB)`);
-        } else {
-            socket.emit('media-error', { error: 'Invalid media recipient or room' });
+            logger.info('Media uploaded', { 
+                from: senderCode, 
+                to, 
+                filename: safeFilename,
+                mimeType,
+                size: `${(sizeInBytes/1024).toFixed(1)}KB` 
+            });
+        } catch (error) {
+            logger.error('Error in media-upload handler', { error: error.message, socketId: socket.id });
+            socket.emit('media-error', { error: 'Failed to upload media' });
         }
     });
 
