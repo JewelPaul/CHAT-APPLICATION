@@ -91,21 +91,6 @@ function ChatApp() {
     }
   }, [addNotification, endCall])
 
-  const handleInitiateCall = async (type: CallType) => {
-    try {
-      await initiateCall(type)
-    } catch (error) {
-      console.error('Failed to initiate call:', error)
-      if (error instanceof Error) {
-        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-          addNotification('error', 'Permission denied. Please allow access to camera/microphone.')
-        } else {
-          addNotification('error', 'Failed to start call. Please check your device permissions.')
-        }
-      }
-    }
-  }
-
   const handleAcceptCall = async () => {
     if (!incomingCall) return
     

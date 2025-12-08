@@ -25,6 +25,10 @@ interface NotificationProviderProps {
 export function NotificationProvider({ children }: NotificationProviderProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
 
+  const removeNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(notification => notification.id !== id))
+  }, [])
+
   const addNotification = useCallback((type: NotificationType, message: string, duration = 3000) => {
     // Check for duplicate notifications
     setNotifications(prev => {
@@ -49,11 +53,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       
       return [...updatedNotifications, notification]
     })
-  }, [])
-
-  const removeNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id))
-  }, [])
+  }, [removeNotification])
 
   return (
     <NotificationContext.Provider value={{ notifications, addNotification, removeNotification }}>

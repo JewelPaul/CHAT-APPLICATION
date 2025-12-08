@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Send, Smile, Paperclip, Phone, Video, MoreVertical } from 'lucide-react'
-import { Message } from './Message'
+import { MessageComponent } from './Message'
 import { EmptyState } from './EmptyState'
 import type { StoredMessage, Contact } from '../db'
 import type { CallType } from '../types'
@@ -157,7 +157,7 @@ export function ChatArea({
         ) : (
           <>
             {messages.map((message) => (
-              <Message
+              <MessageComponent
                 key={message.id}
                 message={{
                   id: message.id,
@@ -167,7 +167,7 @@ export function ChatArea({
                   timestamp: message.timestamp,
                   type: 'text'
                 }}
-                isOwn={message.senderId === currentUserId}
+                isSent={message.senderId === currentUserId}
               />
             ))}
             {isTyping && (

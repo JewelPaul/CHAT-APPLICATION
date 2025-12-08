@@ -56,6 +56,7 @@ export function SearchUsersModal({ isOpen, onClose, onSelectUser, currentUserId 
     return () => {
       if (timer) clearTimeout(timer)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query])
 
   const performSearch = async (searchQuery: string) => {
