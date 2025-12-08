@@ -4,9 +4,9 @@ import { ThemeToggle } from './components/ThemeToggle'
 import { UserMenu } from './components/UserMenu'
 import { IncomingCallModal } from './components/IncomingCallModal'
 import { CallInterface } from './components/CallInterface'
-import { AuthScreen } from './components/AuthScreen'
+import { KeyWelcomeScreen } from './components/KeyWelcomeScreen'
 import { MainChatLayout } from './components/MainChatLayout'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { getDeviceKey, isFirstTimeUser } from './utils/deviceKey'
 import { useWebRTC } from './hooks/useWebRTC'
 import { useState, useEffect } from 'react'
 import socketService from './socket'
@@ -14,7 +14,9 @@ import { useNotifications } from './components/NotificationProvider'
 import type { User, CallType } from './types'
 
 function ChatApp() {
-  const { user: authUser, isAuthenticated, isLoading: authLoading, logout } = useAuth()
+  const [deviceKey, setDeviceKey] = useState<string | null>(null)
+  const [showWelcome, setShowWelcome] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   const [incomingCall, setIncomingCall] = useState<{
     from: User
@@ -23,11 +25,26 @@ function ChatApp() {
 
   const { addNotification } = useNotifications()
 
-  // Create a dummy user for WebRTC (will be replaced with proper implementation)
-  const dummyUser = authUser ? {
-    code: authUser.username,
-    deviceName: authUser.displayName,
-    avatar: authUser.avatarUrl
+  // Initialize device key on mount
+  useEffect(() => {
+    // Check if first time user
+    if (isFirstTimeUser()) {
+      const newKey = getDeviceKey(); // Generates and stores
+      setDeviceKey(newKey);
+      setShowWelcome(true); // Show welcome screen with key
+    } else {
+      const existingKey = getDeviceKey();
+      setDeviceKey(existingKey);
+      setShowWelcome(false); // Go straight to chat
+    }
+    setIsLoading(false);
+  }, []);
+
+  // Create a dummy user for WebRTC based on device key
+  const dummyUser = deviceKey ? {
+    code: deviceKey,
+    deviceName: deviceKey,
+    avatar: undefined
   } : null
 
   const {
@@ -116,8 +133,8 @@ function ChatApp() {
     setIncomingCall(null)
   }
 
-  // Show loading screen while checking authentication
-  if (authLoading) {
+  // Show loading screen while initializing
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
         <div className="text-white text-center">
@@ -128,11 +145,17 @@ function ChatApp() {
     )
   }
 
-  // ALWAYS show auth screen if not authenticated
-  if (!isAuthenticated || !authUser) {
-    return <AuthScreen />
+  // Show welcome screen for first-time users
+  if (showWelcome && deviceKey) {
+    return (
+      <KeyWelcomeScreen 
+        deviceKey={deviceKey} 
+        onContinue={() => setShowWelcome(false)} 
+      />
+    )
   }
 
+  // Main app interface
   return (
     <div className="min-h-screen">
       <ThemeToggle />
@@ -153,8 +176,8 @@ function ChatApp() {
       )}
 
       {/* Main Chat Interface (hidden during call) */}
-      {callState.status === 'idle' && (
-        <MainChatLayout user={authUser} onLogout={logout} />
+      {callState.status === 'idle' && deviceKey && (
+        <MainChatLayout deviceKey={deviceKey} />
       )}
 
       {/* Incoming Call Modal */}
@@ -174,9 +197,7 @@ function App() {
   return (
     <ThemeProvider>
       <NotificationProvider>
-        <AuthProvider>
-          <ChatApp />
-        </AuthProvider>
+        <ChatApp />
       </NotificationProvider>
     </ThemeProvider>
   )

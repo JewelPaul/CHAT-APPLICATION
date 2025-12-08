@@ -1,35 +1,30 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Settings, LogOut, Menu } from 'lucide-react'
+import { Search, Plus, Settings, Menu, Copy, Check, Key } from 'lucide-react'
 import { ContactItem } from './ContactItem'
 import { EmptyState } from './EmptyState'
 import { getDatabase } from '../db'
+import { copyDeviceKeyToClipboard } from '../utils/deviceKey'
 import type { Contact } from '../db'
 
 interface SidebarProps {
-  user: {
-    id: string
-    username: string
-    displayName: string
-    avatarUrl?: string
-  }
+  deviceKey: string
   selectedContactId?: string
   onSelectContact: (contact: Contact) => void
   onNewChat: () => void
   onSettings: () => void
-  onLogout: () => void
 }
 
 export function Sidebar({
-  user,
+  deviceKey,
   selectedContactId,
   onSelectContact,
   onNewChat,
-  onSettings,
-  onLogout
+  onSettings
 }: SidebarProps) {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [keyCopied, setKeyCopied] = useState(false)
 
   // Load contacts from IndexedDB
   useEffect(() => {
@@ -78,25 +73,37 @@ export function Sidebar({
 
       {!isCollapsed && (
         <>
-          {/* User Profile Section */}
+          {/* Device Key Section */}
           <div className="p-4 border-b border-gray-800">
-            <div className="flex items-center gap-3">
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={user.displayName}
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-indigo-500 flex items-center justify-center text-white font-semibold text-lg">
-                  {user.displayName[0]?.toUpperCase() || '?'}
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <h2 className="font-semibold text-white truncate">{user.displayName}</h2>
-                <p className="text-sm text-gray-400 truncate">@{user.username}</p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-gray-400">
+                <Key className="w-4 h-4" />
+                <span className="text-xs font-medium">Your Key</span>
               </div>
-              <div className="w-3 h-3 bg-green-500 rounded-full" title="Online" />
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-[#1e1e2e] border border-gray-700 rounded-lg px-3 py-2">
+                  <p className="text-white font-mono text-sm truncate">{deviceKey}</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await copyDeviceKeyToClipboard(deviceKey);
+                      setKeyCopied(true);
+                      setTimeout(() => setKeyCopied(false), 2000);
+                    } catch (error) {
+                      console.error('Failed to copy key:', error);
+                    }
+                  }}
+                  className="flex items-center justify-center w-9 h-9 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                  title="Copy key"
+                >
+                  {keyCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full" />
+                <span className="text-xs text-gray-400">Online</span>
+              </div>
             </div>
           </div>
 
@@ -160,22 +167,14 @@ export function Sidebar({
           </div>
 
           {/* Bottom Actions */}
-          <div className="p-3 border-t border-gray-800 flex gap-2">
+          <div className="p-3 border-t border-gray-800">
             <button
               onClick={onSettings}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
               title="Settings"
             >
               <Settings className="w-4 h-4" />
               <span className="text-sm">Settings</span>
-            </button>
-            <button
-              onClick={onLogout}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-              title="Logout"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="text-sm">Logout</span>
             </button>
           </div>
         </>
@@ -197,13 +196,6 @@ export function Sidebar({
             title="Settings"
           >
             <Settings className="w-5 h-5 text-gray-400" />
-          </button>
-          <button
-            onClick={onLogout}
-            className="p-3 hover:bg-gray-700/50 rounded-lg transition-colors"
-            title="Logout"
-          >
-            <LogOut className="w-5 h-5 text-gray-400" />
           </button>
         </div>
       )}

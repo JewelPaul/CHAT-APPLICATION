@@ -9,17 +9,10 @@ import type { Contact, StoredMessage } from '../db'
 import type { CallType } from '../types'
 
 interface MainChatLayoutProps {
-  user: {
-    id: string
-    username: string
-    displayName: string
-    email?: string
-    avatarUrl?: string
-  }
-  onLogout: () => void
+  deviceKey: string
 }
 
-export function MainChatLayout({ user, onLogout }: MainChatLayoutProps) {
+export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [messages, setMessages] = useState<StoredMessage[]>([])
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
@@ -49,7 +42,7 @@ export function MainChatLayout({ user, onLogout }: MainChatLayoutProps) {
           id: `msg_${Date.now()}`,
           chatId: contact.id,
           senderId: contact.id,
-          recipientId: user.id,
+          recipientId: deviceKey,
           content: data.message,
           type: 'text',
           timestamp: new Date(data.timestamp),
@@ -93,7 +86,7 @@ export function MainChatLayout({ user, onLogout }: MainChatLayoutProps) {
       socketService.off('typing-start', handleTypingStart)
       socketService.off('typing-stop', handleTypingStop)
     }
-  }, [selectedContact, user.id])
+  }, [selectedContact, deviceKey])
 
   const loadMessages = async (contactId: string) => {
     try {
@@ -165,7 +158,7 @@ export function MainChatLayout({ user, onLogout }: MainChatLayoutProps) {
       const newMessage: StoredMessage = {
         id: `msg_${Date.now()}`,
         chatId: selectedContact.id,
-        senderId: user.id,
+        senderId: deviceKey,
         recipientId: selectedContact.id,
         content: message,
         type: 'text',
@@ -226,19 +219,18 @@ export function MainChatLayout({ user, onLogout }: MainChatLayoutProps) {
     <div className="flex h-screen bg-[#0a0a0f]">
       {/* Sidebar */}
       <Sidebar
-        user={user}
+        deviceKey={deviceKey}
         selectedContactId={selectedContact?.id}
         onSelectContact={handleSelectContact}
         onNewChat={handleNewChat}
         onSettings={handleSettings}
-        onLogout={onLogout}
       />
 
       {/* Chat Area */}
       <ChatArea
         contact={selectedContact}
         messages={messages}
-        currentUserId={user.id}
+        currentUserId={deviceKey}
         isTyping={isTyping}
         onSendMessage={handleSendMessage}
         onTypingStart={handleTypingStart}
@@ -251,7 +243,7 @@ export function MainChatLayout({ user, onLogout }: MainChatLayoutProps) {
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
         onSelectUser={handleSelectUser}
-        currentUserId={user.id}
+        currentUserId={deviceKey}
       />
     </div>
   )
