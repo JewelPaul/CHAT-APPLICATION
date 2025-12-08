@@ -1,0 +1,258 @@
+import { useState, useEffect } from 'react'
+import { Sidebar } from './Sidebar'
+import { ChatArea } from './ChatArea'
+import { SearchUsersModal } from './SearchUsersModal'
+import { getDatabase } from '../db'
+import socketService from '../socket'
+import { useNotifications } from './NotificationProvider'
+import type { Contact, StoredMessage } from '../db'
+import type { CallType } from '../types'
+
+interface MainChatLayoutProps {
+  user: {
+    id: string
+    username: string
+    displayName: string
+    email?: string
+    avatarUrl?: string
+  }
+  onLogout: () => void
+}
+
+export function MainChatLayout({ user, onLogout }: MainChatLayoutProps) {
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
+  const [messages, setMessages] = useState<StoredMessage[]>([])
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
+  const [isTyping, setIsTyping] = useState(false)
+  const { addNotification } = useNotifications()
+
+  // Load messages when contact is selected
+  useEffect(() => {
+    if (selectedContact) {
+      loadMessages(selectedContact.id)
+    } else {
+      setMessages([])
+    }
+  }, [selectedContact])
+
+  // Set up socket listeners for real-time messages
+  useEffect(() => {
+    const handleMessage = async (data: { from: string; message: string; timestamp: string }) => {
+      // Find contact by username or ID
+      const db = await getDatabase()
+      const contacts = await db.getContacts()
+      const contact = contacts.find(c => c.username === data.from)
+      
+      if (contact) {
+        // Save message to IndexedDB
+        const newMessage: StoredMessage = {
+          id: `msg_${Date.now()}`,
+          chatId: contact.id,
+          senderId: contact.id,
+          recipientId: user.id,
+          content: data.message,
+          type: 'text',
+          timestamp: new Date(data.timestamp),
+          status: 'delivered'
+        }
+        
+        await db.saveMessage(newMessage)
+        
+        // Update UI if this contact is selected
+        if (selectedContact?.id === contact.id) {
+          setMessages(prev => [...prev, newMessage])
+        }
+        
+        // Update contact's last message
+        await db.updateContact(contact.id, {
+          lastMessage: data.message,
+          lastMessageTime: new Date(data.timestamp),
+          unreadCount: selectedContact?.id === contact.id ? 0 : (contact.unreadCount || 0) + 1
+        })
+      }
+    }
+
+    const handleTypingStart = (data: { from: string }) => {
+      if (selectedContact?.username === data.from) {
+        setIsTyping(true)
+      }
+    }
+
+    const handleTypingStop = (data: { from: string }) => {
+      if (selectedContact?.username === data.from) {
+        setIsTyping(false)
+      }
+    }
+
+    socketService.on('message', handleMessage)
+    socketService.on('typing-start', handleTypingStart)
+    socketService.on('typing-stop', handleTypingStop)
+
+    return () => {
+      socketService.off('message', handleMessage)
+      socketService.off('typing-start', handleTypingStart)
+      socketService.off('typing-stop', handleTypingStop)
+    }
+  }, [selectedContact, user.id])
+
+  const loadMessages = async (contactId: string) => {
+    try {
+      const db = await getDatabase()
+      const chatMessages = await db.getMessages(contactId)
+      setMessages(chatMessages)
+    } catch (error) {
+      console.error('Failed to load messages:', error)
+    }
+  }
+
+  const handleSelectContact = async (contact: Contact) => {
+    setSelectedContact(contact)
+    
+    // Mark messages as read
+    if (contact.unreadCount > 0) {
+      try {
+        const db = await getDatabase()
+        await db.updateContact(contact.id, { unreadCount: 0 })
+      } catch (error) {
+        console.error('Failed to mark messages as read:', error)
+      }
+    }
+  }
+
+  const handleNewChat = () => {
+    setIsSearchModalOpen(true)
+  }
+
+  const handleSelectUser = async (searchResult: { id: string; username: string; displayName: string; avatarUrl?: string }) => {
+    try {
+      const db = await getDatabase()
+      
+      // Check if contact already exists
+      const contacts = await db.getContacts()
+      let contact = contacts.find(c => c.username === searchResult.username)
+      
+      if (!contact) {
+        // Create new contact
+        const newContact: Contact = {
+          id: searchResult.id,
+          username: searchResult.username,
+          displayName: searchResult.displayName,
+          avatar: searchResult.avatarUrl,
+          publicKey: '', // Will be exchanged later
+          status: 'accepted',
+          unreadCount: 0
+        }
+        
+        await db.addContact(newContact)
+        contact = newContact
+        
+        addNotification('success', `Added ${searchResult.displayName} to contacts`)
+      }
+      
+      setSelectedContact(contact)
+    } catch (error) {
+      console.error('Failed to add contact:', error)
+      addNotification('error', 'Failed to add contact')
+    }
+  }
+
+  const handleSendMessage = async (message: string) => {
+    if (!selectedContact) return
+
+    try {
+      // Save message to IndexedDB
+      const db = await getDatabase()
+      const newMessage: StoredMessage = {
+        id: `msg_${Date.now()}`,
+        chatId: selectedContact.id,
+        senderId: user.id,
+        recipientId: selectedContact.id,
+        content: message,
+        type: 'text',
+        timestamp: new Date(),
+        status: 'sending'
+      }
+      
+      await db.saveMessage(newMessage)
+      setMessages(prev => [...prev, newMessage])
+      
+      // Update contact's last message
+      await db.updateContact(selectedContact.id, {
+        lastMessage: message,
+        lastMessageTime: new Date()
+      })
+      
+      // Send via socket
+      socketService.emit('send-message', {
+        to: selectedContact.username,
+        message,
+        timestamp: new Date().toISOString()
+      })
+      
+      // Update message status
+      setTimeout(async () => {
+        await db.updateMessageStatus(newMessage.id, 'sent')
+        setMessages(prev => 
+          prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m)
+        )
+      }, 500)
+    } catch (error) {
+      console.error('Failed to send message:', error)
+      addNotification('error', 'Failed to send message')
+    }
+  }
+
+  const handleTypingStart = () => {
+    if (selectedContact) {
+      socketService.emit('typing-start', { to: selectedContact.username })
+    }
+  }
+
+  const handleTypingStop = () => {
+    if (selectedContact) {
+      socketService.emit('typing-stop', { to: selectedContact.username })
+    }
+  }
+
+  const handleSettings = () => {
+    addNotification('info', 'Settings feature coming soon!')
+  }
+
+  const handleInitiateCall = (type: CallType) => {
+    addNotification('info', `${type === 'audio' ? 'Voice' : 'Video'} call feature available`)
+  }
+
+  return (
+    <div className="flex h-screen bg-[#0a0a0f]">
+      {/* Sidebar */}
+      <Sidebar
+        user={user}
+        selectedContactId={selectedContact?.id}
+        onSelectContact={handleSelectContact}
+        onNewChat={handleNewChat}
+        onSettings={handleSettings}
+        onLogout={onLogout}
+      />
+
+      {/* Chat Area */}
+      <ChatArea
+        contact={selectedContact}
+        messages={messages}
+        currentUserId={user.id}
+        isTyping={isTyping}
+        onSendMessage={handleSendMessage}
+        onTypingStart={handleTypingStart}
+        onTypingStop={handleTypingStop}
+        onInitiateCall={handleInitiateCall}
+      />
+
+      {/* Search Users Modal */}
+      <SearchUsersModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        onSelectUser={handleSelectUser}
+        currentUserId={user.id}
+      />
+    </div>
+  )
+}

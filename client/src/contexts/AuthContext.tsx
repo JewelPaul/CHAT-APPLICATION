@@ -225,7 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Load user profile from IndexedDB
       const db = await getDatabase();
-      let profile = await db.getUserProfile(serverUser.id);
+      const profile = await db.getUserProfile(serverUser.id);
 
       if (!profile) {
         // First time login on this device - need to restore from backup

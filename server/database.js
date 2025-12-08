@@ -164,6 +164,17 @@ class ChatDatabase {
     return stmt.all(`%${query}%`, `%${query}%`, limit);
   }
 
+  searchUsersByUsername(query, limit = 20) {
+    const stmt = this.db.prepare(`
+      SELECT id, username, display_name, avatar_url, status, last_seen
+      FROM users 
+      WHERE LOWER(username) LIKE LOWER(?)
+      ORDER BY username
+      LIMIT ?
+    `);
+    return stmt.all(`%${query}%`, limit);
+  }
+
   /**
    * Friendship operations
    */

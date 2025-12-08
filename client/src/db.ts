@@ -186,6 +186,28 @@ class ChatDatabase {
     });
   }
 
+  async addContact(contact: Contact): Promise<void> {
+    return this.saveContact(contact);
+  }
+
+  async updateContact(contactId: string, updates: Partial<Contact>): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const contact = await this.getContact(contactId);
+    if (contact) {
+      const updatedContact = { ...contact, ...updates };
+      await this.saveContact(updatedContact);
+    }
+  }
+
+  async getContacts(): Promise<Contact[]> {
+    return this.getAllContacts();
+  }
+
+  async getMessages(chatId: string): Promise<StoredMessage[]> {
+    return this.getMessagesByChatId(chatId);
+  }
+
   async getContact(contactId: string): Promise<Contact | null> {
     if (!this.db) throw new Error('Database not initialized');
 

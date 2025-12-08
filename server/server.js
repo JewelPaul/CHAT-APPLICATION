@@ -12,6 +12,7 @@ const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const cors = require('cors');
 const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMessage, validateMediaUpload, calculateBase64Size, Logger } = require('./utils');
 const { version } = require('../package.json');
 const ChatDatabase = require('./database');
@@ -35,6 +36,12 @@ const app = express();
 
 // Parse JSON bodies
 app.use(express.json({ limit: '10mb' }));
+
+// Enable CORS for all routes
+app.use(cors({
+  origin: process.env.ORIGIN || '*',
+  credentials: true
+}));
 
 // Security middleware
 app.use(helmet({
@@ -720,6 +727,47 @@ io.on('connection', (socket) => {
             }
         } catch (error) {
             logger.error('Read receipt error', { error: error.message });
+        }
+    });
+
+    /**
+     * Search users by username
+     */
+    socket.on('search-users', (data, callback) => {
+        try {
+            const searcherId = sockets.get(socket.id);
+            if (!searcherId) {
+                if (callback) callback({ users: [], error: 'Not authenticated' });
+                return;
+            }
+
+            const { query } = data;
+            if (!query || typeof query !== 'string' || query.trim().length < 2) {
+                if (callback) callback({ users: [] });
+                return;
+            }
+
+            // Search for users by username (case insensitive, partial match)
+            const searchTerm = query.trim().toLowerCase();
+            const results = db.searchUsersByUsername(searchTerm);
+            
+            // Sanitize results and exclude the searcher
+            const sanitizedResults = results
+                .filter(user => user.id !== searcherId)
+                .slice(0, 20) // Limit to 20 results
+                .map(user => ({
+                    id: user.id,
+                    username: user.username,
+                    displayName: user.display_name,
+                    avatarUrl: user.avatar_url
+                }));
+
+            if (callback) callback({ users: sanitizedResults });
+            
+            logger.debug('User search', { searcherId, query: searchTerm, resultsCount: sanitizedResults.length });
+        } catch (error) {
+            logger.error('User search error', { error: error.message });
+            if (callback) callback({ users: [], error: 'Search failed' });
         }
     });
 
