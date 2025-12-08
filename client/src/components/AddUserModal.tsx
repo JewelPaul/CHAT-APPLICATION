@@ -12,6 +12,12 @@ interface AddUserModalProps {
 
 type ModalState = 'input' | 'sending' | 'waiting' | 'error' | 'not-found' | 'success'
 
+// Device key format validation pattern
+const DEVICE_KEY_PATTERN = /^CW-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/
+
+// Maximum length of characters after "CW-" prefix (3 groups of 4 characters)
+const MAX_KEY_CHARS = 12
+
 export function AddUserModal({ 
   isOpen, 
   onClose, 
@@ -76,8 +82,7 @@ export function AddUserModal({
 
   // Validate key format: CW-XXXX-XXXX-XXXX
   const isValidFormat = (key: string): boolean => {
-    const pattern = /^CW-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/
-    return pattern.test(key.toUpperCase())
+    return DEVICE_KEY_PATTERN.test(key.toUpperCase())
   }
 
   const handleSubmit = () => {
@@ -121,11 +126,10 @@ export function AddUserModal({
       }
     }
     
-    // Auto-add dashes at correct positions
-    // Format: CW-XXXX-XXXX-XXXX
+    // Auto-add dashes at correct positions (Format: CW-XXXX-XXXX-XXXX)
     const parts = cleaned.replace('CW-', '').split('-').join('')
     let formatted = 'CW-'
-    for (let i = 0; i < parts.length && i < 12; i++) {
+    for (let i = 0; i < parts.length && i < MAX_KEY_CHARS; i++) {
       if (i > 0 && i % 4 === 0) formatted += '-'
       formatted += parts[i]
     }
