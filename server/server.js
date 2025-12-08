@@ -723,6 +723,47 @@ io.on('connection', (socket) => {
         }
     });
 
+    /**
+     * Search users by username
+     */
+    socket.on('search-users', (data, callback) => {
+        try {
+            const searcherId = sockets.get(socket.id);
+            if (!searcherId) {
+                if (callback) callback({ users: [], error: 'Not authenticated' });
+                return;
+            }
+
+            const { query } = data;
+            if (!query || typeof query !== 'string' || query.trim().length < 2) {
+                if (callback) callback({ users: [] });
+                return;
+            }
+
+            // Search for users by username (case insensitive, partial match)
+            const searchTerm = query.trim().toLowerCase();
+            const results = db.searchUsersByUsername(searchTerm);
+            
+            // Sanitize results and exclude the searcher
+            const sanitizedResults = results
+                .filter(user => user.id !== searcherId)
+                .slice(0, 20) // Limit to 20 results
+                .map(user => ({
+                    id: user.id,
+                    username: user.username,
+                    displayName: user.display_name,
+                    avatarUrl: user.avatar_url
+                }));
+
+            if (callback) callback({ users: sanitizedResults });
+            
+            logger.debug('User search', { searcherId, query: searchTerm, resultsCount: sanitizedResults.length });
+        } catch (error) {
+            logger.error('User search error', { error: error.message });
+            if (callback) callback({ users: [], error: 'Search failed' });
+        }
+    });
+
     // ============================================
     // LEGACY EPHEMERAL MODE (for backward compatibility)
     // ============================================

@@ -2,15 +2,11 @@ import { ThemeProvider } from './components/ThemeProvider'
 import { NotificationProvider } from './components/NotificationProvider'
 import { ThemeToggle } from './components/ThemeToggle'
 import { UserMenu } from './components/UserMenu'
-import { WelcomeScreen } from './components/WelcomeScreen'
-import { ChatInterface } from './components/ChatInterface'
-import { ConnectionRequestModal } from './components/ConnectionRequestModal'
-import { WaitingModal } from './components/WaitingModal'
 import { IncomingCallModal } from './components/IncomingCallModal'
 import { CallInterface } from './components/CallInterface'
 import { AuthScreen } from './components/AuthScreen'
+import { MainChatLayout } from './components/MainChatLayout'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import { useChat } from './hooks/useChat'
 import { useWebRTC } from './hooks/useWebRTC'
 import { useState, useEffect } from 'react'
 import socketService from './socket'
@@ -18,35 +14,7 @@ import { useNotifications } from './components/NotificationProvider'
 import type { User, CallType } from './types'
 
 function ChatApp() {
-  const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth()
-  
-  // Don't initialize legacy chat until authenticated
-  const shouldInitializeChat = isAuthenticated && !!authUser
-  
-  const {
-    user,
-    connectionStatus,
-    currentChat,
-    connectionRequest,
-    waitingForResponse,
-    isTyping,
-    typingUser,
-    sendConnectionRequest,
-    acceptConnection,
-    rejectConnection,
-    sendMessage,
-    sendTypingStart,
-    sendTypingStop,
-    disconnectChat,
-    cancelWaitingRequest
-  } = useChat({ 
-    enabled: shouldInitializeChat,
-    authUser: authUser ? {
-      username: authUser.username,
-      displayName: authUser.displayName,
-      avatarUrl: authUser.avatarUrl
-    } : null
-  })
+  const { user: authUser, isAuthenticated, isLoading: authLoading, logout } = useAuth()
 
   const [incomingCall, setIncomingCall] = useState<{
     from: User
@@ -54,6 +22,13 @@ function ChatApp() {
   } | null>(null)
 
   const { addNotification } = useNotifications()
+
+  // Create a dummy user for WebRTC (will be replaced with proper implementation)
+  const dummyUser = authUser ? {
+    code: authUser.username,
+    deviceName: authUser.displayName,
+    avatar: authUser.avatarUrl
+  } : null
 
   const {
     callState,
@@ -65,7 +40,7 @@ function ChatApp() {
     endCall,
     toggleMute,
     toggleVideo
-  } = useWebRTC(user, currentChat?.user || null)
+  } = useWebRTC(dummyUser, null)
 
   // Handle incoming calls
   useEffect(() => {
@@ -168,8 +143,8 @@ function ChatApp() {
     )
   }
 
-  // ALWAYS show auth screen if not authenticated - don't check legacy user
-  if (!isAuthenticated) {
+  // ALWAYS show auth screen if not authenticated
+  if (!isAuthenticated || !authUser) {
     return <AuthScreen />
   }
 
@@ -192,41 +167,9 @@ function ChatApp() {
         />
       )}
 
-      {/* Chat Interface (hidden during call) */}
+      {/* Main Chat Interface (hidden during call) */}
       {callState.status === 'idle' && (
-        <>
-          {currentChat ? (
-            <ChatInterface
-              user={user}
-              chat={currentChat}
-              isTyping={isTyping}
-              typingUser={typingUser}
-              onSendMessage={sendMessage}
-              onSendTypingStart={sendTypingStart}
-              onSendTypingStop={sendTypingStop}
-              onDisconnect={disconnectChat}
-              onBackToWelcome={disconnectChat}
-              onInitiateCall={handleInitiateCall}
-            />
-          ) : (
-            <WelcomeScreen
-              user={user}
-              connectionStatus={connectionStatus}
-              onSendConnectionRequest={sendConnectionRequest}
-            />
-          )}
-
-          <ConnectionRequestModal
-            request={connectionRequest}
-            onAccept={acceptConnection}
-            onReject={rejectConnection}
-          />
-
-          <WaitingModal
-            waitingFor={waitingForResponse}
-            onCancel={cancelWaitingRequest}
-          />
-        </>
+        <MainChatLayout user={authUser} onLogout={logout} />
       )}
 
       {/* Incoming Call Modal */}
