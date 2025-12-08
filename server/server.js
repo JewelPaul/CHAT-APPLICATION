@@ -12,6 +12,7 @@ const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const cors = require('cors');
 const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMessage, validateMediaUpload, calculateBase64Size, Logger } = require('./utils');
 const { version } = require('../package.json');
 const ChatDatabase = require('./database');
@@ -35,6 +36,12 @@ const app = express();
 
 // Parse JSON bodies
 app.use(express.json({ limit: '10mb' }));
+
+// Enable CORS for all routes
+app.use(cors({
+  origin: process.env.ORIGIN || '*',
+  credentials: true
+}));
 
 // Security middleware
 app.use(helmet({
