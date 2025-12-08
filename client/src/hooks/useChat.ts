@@ -14,7 +14,28 @@ interface UseChatOptions {
   } | null
 }
 
-export function useChat(options: UseChatOptions = { enabled: true }) {
+// Disabled state return object
+const DISABLED_CHAT_STATE = {
+  user: null,
+  connectionStatus: 'disconnected' as ConnectionStatus,
+  currentChat: null,
+  connectionRequest: null,
+  waitingForResponse: null,
+  isTyping: false,
+  typingUser: null,
+  sendConnectionRequest: () => {},
+  acceptConnection: () => {},
+  rejectConnection: () => {},
+  sendMessage: () => {},
+  sendTypingStart: () => {},
+  sendTypingStop: () => {},
+  disconnectChat: () => {},
+  cancelWaitingRequest: () => {}
+}
+
+const DEFAULT_OPTIONS: UseChatOptions = { enabled: true, authUser: null }
+
+export function useChat(options: UseChatOptions = DEFAULT_OPTIONS) {
   const { enabled = true, authUser = null } = options
   
   const [user, setUser] = useState<User | null>(null)
@@ -292,25 +313,9 @@ export function useChat(options: UseChatOptions = { enabled: true }) {
     addNotification('info', 'Connection request cancelled')
   }, [addNotification])
 
-  // Return null states if not enabled
+  // Return disabled state if not enabled
   if (!enabled) {
-    return {
-      user: null,
-      connectionStatus: 'disconnected' as ConnectionStatus,
-      currentChat: null,
-      connectionRequest: null,
-      waitingForResponse: null,
-      isTyping: false,
-      typingUser: null,
-      sendConnectionRequest: () => {},
-      acceptConnection: () => {},
-      rejectConnection: () => {},
-      sendMessage: () => {},
-      sendTypingStart: () => {},
-      sendTypingStop: () => {},
-      disconnectChat: () => {},
-      cancelWaitingRequest: () => {}
-    }
+    return DISABLED_CHAT_STATE
   }
 
   return {

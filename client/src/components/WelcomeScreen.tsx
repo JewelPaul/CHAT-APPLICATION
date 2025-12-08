@@ -5,6 +5,8 @@ import { copyToClipboard } from '../utils'
 import { useNotifications } from './NotificationProvider'
 import type { User, ConnectionStatus } from '../types'
 
+const MIN_USERNAME_LENGTH = 3
+
 interface WelcomeScreenProps {
   user: User | null
   connectionStatus: ConnectionStatus
@@ -27,7 +29,7 @@ export function WelcomeScreen({ user, connectionStatus, onSendConnectionRequest 
   }
 
   const handleSendRequest = () => {
-    if (connectCode.trim().length >= 3) {
+    if (connectCode.trim().length >= MIN_USERNAME_LENGTH) {
       onSendConnectionRequest(connectCode.trim())
       setConnectCode('')
     } else {
@@ -162,7 +164,7 @@ export function WelcomeScreen({ user, connectionStatus, onSendConnectionRequest 
                 />
                 <button
                   onClick={handleSendRequest}
-                  disabled={connectCode.trim().length < 3}
+                  disabled={connectCode.trim().length < MIN_USERNAME_LENGTH}
                   className="btn btn-primary"
                   title="Send connection request"
                 >
