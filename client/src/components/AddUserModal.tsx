@@ -12,11 +12,11 @@ interface AddUserModalProps {
 
 type ModalState = 'input' | 'sending' | 'waiting' | 'error' | 'not-found' | 'success'
 
-// Device key format validation pattern
+// Device key format validation pattern: CW-XXXX-XXXX-XXXX
 const DEVICE_KEY_PATTERN = /^CW-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/
 
-// Maximum length of characters after "CW-" prefix (3 groups of 4 characters)
-const MAX_KEY_CHARS = 12
+// Maximum alphanumeric characters after "CW-" prefix (3 groups of 4 = 12 chars, excluding hyphens)
+const MAX_KEY_ALPHANUMERIC_CHARS = 12
 
 export function AddUserModal({ 
   isOpen, 
@@ -127,9 +127,10 @@ export function AddUserModal({
     }
     
     // Auto-add dashes at correct positions (Format: CW-XXXX-XXXX-XXXX)
+    // Extract only alphanumeric characters after "CW-"
     const parts = cleaned.replace('CW-', '').split('-').join('')
     let formatted = 'CW-'
-    for (let i = 0; i < parts.length && i < MAX_KEY_CHARS; i++) {
+    for (let i = 0; i < parts.length && i < MAX_KEY_ALPHANUMERIC_CHARS; i++) {
       if (i > 0 && i % 4 === 0) formatted += '-'
       formatted += parts[i]
     }

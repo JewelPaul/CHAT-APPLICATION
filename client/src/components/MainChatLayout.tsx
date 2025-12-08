@@ -233,7 +233,7 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
         isOpen={isAddUserModalOpen}
         onClose={() => setIsAddUserModalOpen(false)}
         myKey={deviceKey}
-        existingContacts={contacts.map(c => c.id)}
+        existingContacts={contacts.map(c => c.id)} // Contact.id contains device keys
         onRequestSent={handleRequestSent}
       />
     </div>
