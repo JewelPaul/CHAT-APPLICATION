@@ -81,8 +81,17 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 // ============================================
 // IN-MEMORY DATA STRUCTURES
 // ============================================
-// Legacy support: Map of userCode -> user data (for old ephemeral mode)
+// Map of userCode -> user data
 const users = new Map();
+
+// Map of socketId -> userCode
+const sockets = new Map();
+
+// Map of userCode -> online user info (for authenticated mode compatibility)
+const onlineUsers = new Map();
+
+// Map of roomId -> room data
+const chatRooms = new Map();
 
 // Map of userId -> Set of pending invites
 const pendingInvites = new Map();
