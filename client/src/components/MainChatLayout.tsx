@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Sidebar } from './Sidebar'
 import { ChatArea } from './ChatArea'
-import { SearchUsersModal } from './SearchUsersModal'
+import { AddUserModal } from './AddUserModal'
 import { getDatabase } from '../db'
 import socketService from '../socket'
 import { useNotifications } from './NotificationProvider'
@@ -15,8 +15,9 @@ interface MainChatLayoutProps {
 export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [messages, setMessages] = useState<StoredMessage[]>([])
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
+  const [contacts, setContacts] = useState<Contact[]>([])
   const { addNotification } = useNotifications()
 
   // Load messages when contact is selected
@@ -112,41 +113,30 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
     }
   }
 
+  // Load contacts for the modal
+  useEffect(() => {
+    const loadContacts = async () => {
+      try {
+        const db = await getDatabase()
+        const allContacts = await db.getContacts()
+        setContacts(allContacts)
+      } catch (error) {
+        console.error('Failed to load contacts:', error)
+      }
+    }
+    loadContacts()
+  }, [])
+
   const handleNewChat = () => {
-    setIsSearchModalOpen(true)
+    setIsAddUserModalOpen(true)
   }
 
-  const handleSelectUser = async (searchResult: { id: string; username: string; displayName: string; avatarUrl?: string }) => {
-    try {
-      const db = await getDatabase()
-      
-      // Check if contact already exists
-      const contacts = await db.getContacts()
-      let contact = contacts.find(c => c.username === searchResult.username)
-      
-      if (!contact) {
-        // Create new contact
-        const newContact: Contact = {
-          id: searchResult.id,
-          username: searchResult.username,
-          displayName: searchResult.displayName,
-          avatar: searchResult.avatarUrl,
-          publicKey: '', // Will be exchanged later
-          status: 'accepted',
-          unreadCount: 0
-        }
-        
-        await db.addContact(newContact)
-        contact = newContact
-        
-        addNotification('success', `Added ${searchResult.displayName} to contacts`)
-      }
-      
-      setSelectedContact(contact)
-    } catch (error) {
-      console.error('Failed to add contact:', error)
-      addNotification('error', 'Failed to add contact')
-    }
+  const handleRequestSent = (targetKey: string) => {
+    addNotification('info', `Connection request sent to ${targetKey}`)
+    // Optionally close the modal after a delay
+    setTimeout(() => {
+      setIsAddUserModalOpen(false)
+    }, 2000)
   }
 
   const handleSendMessage = async (message: string) => {
@@ -238,12 +228,13 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
         onInitiateCall={handleInitiateCall}
       />
 
-      {/* Search Users Modal */}
-      <SearchUsersModal
-        isOpen={isSearchModalOpen}
-        onClose={() => setIsSearchModalOpen(false)}
-        onSelectUser={handleSelectUser}
-        currentUserId={deviceKey}
+      {/* Add User Modal */}
+      <AddUserModal
+        isOpen={isAddUserModalOpen}
+        onClose={() => setIsAddUserModalOpen(false)}
+        myKey={deviceKey}
+        existingContacts={contacts.map(c => c.id)} // Contact.id contains device keys
+        onRequestSent={handleRequestSent}
       />
     </div>
   )
