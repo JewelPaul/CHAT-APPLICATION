@@ -5,7 +5,39 @@ import { generateUserCode, detectDevice } from '../utils'
 import { useNotifications } from '../components/NotificationProvider'
 import type { User, Message, ConnectionRequest, ConnectionStatus } from '../types'
 
-export function useChat() {
+interface UseChatOptions {
+  enabled?: boolean
+  authUser?: {
+    username: string
+    displayName: string
+    avatarUrl?: string
+  } | null
+}
+
+// Disabled state return object
+const DISABLED_CHAT_STATE = {
+  user: null,
+  connectionStatus: 'disconnected' as ConnectionStatus,
+  currentChat: null,
+  connectionRequest: null,
+  waitingForResponse: null,
+  isTyping: false,
+  typingUser: null,
+  sendConnectionRequest: () => {},
+  acceptConnection: () => {},
+  rejectConnection: () => {},
+  sendMessage: () => {},
+  sendTypingStart: () => {},
+  sendTypingStop: () => {},
+  disconnectChat: () => {},
+  cancelWaitingRequest: () => {}
+}
+
+const DEFAULT_OPTIONS: UseChatOptions = { enabled: true, authUser: null }
+
+export function useChat(options: UseChatOptions = DEFAULT_OPTIONS) {
+  const { enabled = true, authUser = null } = options
+  
   const [user, setUser] = useState<User | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected')
   const [currentChat, setCurrentChat] = useState<{
@@ -24,18 +56,35 @@ export function useChat() {
 
   // Initialize user and connect to socket
   useEffect(() => {
+    if (!enabled) return
+    
     const initializeChat = async () => {
       try {
         setConnectionStatus('connecting')
         await socketService.connect()
         
-        // Generate user info
-        const userCode = generateUserCode()
-        const deviceName = detectDevice()
-        const newUser: User = { code: userCode, deviceName }
+        // Use auth user if available, otherwise generate random code
+        let userCode: string
+        let deviceName: string
+        let avatar: string | undefined
+        
+        if (authUser) {
+          userCode = authUser.username
+          deviceName = authUser.displayName
+          avatar = authUser.avatarUrl
+        } else {
+          userCode = generateUserCode()
+          deviceName = detectDevice()
+        }
+        
+        const newUser: User = { 
+          code: userCode, 
+          deviceName,
+          avatar 
+        }
         
         setUser(newUser)
-        socketService.register(userCode, deviceName)
+        socketService.register(userCode, deviceName, avatar)
         
         addNotification('success', 'Connected to ChatWave!')
       } catch (error) {
@@ -50,7 +99,7 @@ export function useChat() {
     return () => {
       socketService.disconnect()
     }
-  }, [addNotification])
+  }, [enabled, authUser, addNotification])
 
   // Set up socket event listeners
   useEffect(() => {
@@ -263,6 +312,11 @@ export function useChat() {
     setWaitingForResponse(null)
     addNotification('info', 'Connection request cancelled')
   }, [addNotification])
+
+  // Return disabled state if not enabled
+  if (!enabled) {
+    return DISABLED_CHAT_STATE
+  }
 
   return {
     user,

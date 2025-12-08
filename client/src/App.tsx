@@ -1,6 +1,7 @@
 import { ThemeProvider } from './components/ThemeProvider'
 import { NotificationProvider } from './components/NotificationProvider'
 import { ThemeToggle } from './components/ThemeToggle'
+import { UserMenu } from './components/UserMenu'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { ChatInterface } from './components/ChatInterface'
 import { ConnectionRequestModal } from './components/ConnectionRequestModal'
@@ -19,6 +20,9 @@ import type { User, CallType } from './types'
 function ChatApp() {
   const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth()
   
+  // Don't initialize legacy chat until authenticated
+  const shouldInitializeChat = isAuthenticated && !!authUser
+  
   const {
     user,
     connectionStatus,
@@ -35,7 +39,14 @@ function ChatApp() {
     sendTypingStop,
     disconnectChat,
     cancelWaitingRequest
-  } = useChat()
+  } = useChat({ 
+    enabled: shouldInitializeChat,
+    authUser: authUser ? {
+      username: authUser.username,
+      displayName: authUser.displayName,
+      avatarUrl: authUser.avatarUrl
+    } : null
+  })
 
   const [incomingCall, setIncomingCall] = useState<{
     from: User
@@ -157,16 +168,15 @@ function ChatApp() {
     )
   }
 
-  // Show auth screen if not authenticated
-  // Once authenticated, show the legacy ephemeral chat interface
-  // (Future: Replace with permanent chat interface)
-  if (!isAuthenticated && !user) {
+  // ALWAYS show auth screen if not authenticated - don't check legacy user
+  if (!isAuthenticated) {
     return <AuthScreen />
   }
 
   return (
     <div className="min-h-screen">
       <ThemeToggle />
+      <UserMenu />
       
       {/* Active Call Interface */}
       {(callState.status === 'calling' || callState.status === 'active') && 
