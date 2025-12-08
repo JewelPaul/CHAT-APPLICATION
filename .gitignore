@@ -25,6 +25,12 @@ pids/
 *.seed
 *.pid.lock
 
+# Database files
+data/
+*.db
+*.db-shm
+*.db-wal
+
 # OS generated files
 .DS_Store
 .DS_Store?

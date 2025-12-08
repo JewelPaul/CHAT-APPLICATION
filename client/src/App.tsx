@@ -7,6 +7,8 @@ import { ConnectionRequestModal } from './components/ConnectionRequestModal'
 import { WaitingModal } from './components/WaitingModal'
 import { IncomingCallModal } from './components/IncomingCallModal'
 import { CallInterface } from './components/CallInterface'
+import { AuthScreen } from './components/AuthScreen'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { useChat } from './hooks/useChat'
 import { useWebRTC } from './hooks/useWebRTC'
 import { useState, useEffect } from 'react'
@@ -15,6 +17,8 @@ import { useNotifications } from './components/NotificationProvider'
 import type { User, CallType } from './types'
 
 function ChatApp() {
+  const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth()
+  
   const {
     user,
     connectionStatus,
@@ -141,6 +145,25 @@ function ChatApp() {
     setIncomingCall(null)
   }
 
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-xl font-semibold">Loading ChatWave...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show auth screen if not authenticated
+  // Once authenticated, show the legacy ephemeral chat interface
+  // (Future: Replace with permanent chat interface)
+  if (!isAuthenticated && !user) {
+    return <AuthScreen />
+  }
+
   return (
     <div className="min-h-screen">
       <ThemeToggle />
@@ -213,7 +236,9 @@ function App() {
   return (
     <ThemeProvider>
       <NotificationProvider>
-        <ChatApp />
+        <AuthProvider>
+          <ChatApp />
+        </AuthProvider>
       </NotificationProvider>
     </ThemeProvider>
   )
