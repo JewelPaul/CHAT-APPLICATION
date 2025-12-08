@@ -27,11 +27,11 @@ export function WelcomeScreen({ user, connectionStatus, onSendConnectionRequest 
   }
 
   const handleSendRequest = () => {
-    if (connectCode.trim().length >= 4) {
-      onSendConnectionRequest(connectCode.trim().toUpperCase())
+    if (connectCode.trim().length >= 3) {
+      onSendConnectionRequest(connectCode.trim())
       setConnectCode('')
     } else {
-      addNotification('warning', 'Please enter a valid invite code')
+      addNotification('warning', 'Please enter a valid username')
     }
   }
 
@@ -108,10 +108,10 @@ export function WelcomeScreen({ user, connectionStatus, onSendConnectionRequest 
           <div className="card p-6 space-y-4">
             <div className="text-center">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Your Invite Code
+                Your Username
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Share this code for others to connect with you
+                Share your username for others to connect with you
               </p>
             </div>
 
@@ -119,10 +119,10 @@ export function WelcomeScreen({ user, connectionStatus, onSendConnectionRequest 
               <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
                   <div className="text-2xl font-mono font-bold text-primary-600 dark:text-primary-400">
-                    {user.code}
+                    @{user.code}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Device: {user.deviceName}
+                    {user.deviceName}
                   </div>
                 </div>
                 <button
@@ -142,10 +142,10 @@ export function WelcomeScreen({ user, connectionStatus, onSendConnectionRequest 
           <div className="card p-6 space-y-4">
             <div className="text-center">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Join a Chat
+                Connect with Someone
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Enter someone's invite code to request a connection
+                Enter a username to request a connection
               </p>
             </div>
 
@@ -154,15 +154,15 @@ export function WelcomeScreen({ user, connectionStatus, onSendConnectionRequest 
                 <input
                   type="text"
                   value={connectCode}
-                  onChange={(e) => setConnectCode(e.target.value.toUpperCase())}
+                  onChange={(e) => setConnectCode(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Enter invite code"
+                  placeholder="Enter @username"
                   className="input flex-1"
-                  maxLength={10}
+                  maxLength={20}
                 />
                 <button
                   onClick={handleSendRequest}
-                  disabled={connectCode.trim().length < 4}
+                  disabled={connectCode.trim().length < 3}
                   className="btn btn-primary"
                   title="Send connection request"
                 >
