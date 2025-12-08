@@ -1,6 +1,7 @@
 import { ThemeProvider } from './components/ThemeProvider'
 import { NotificationProvider } from './components/NotificationProvider'
 import { ThemeToggle } from './components/ThemeToggle'
+import { UserMenu } from './components/UserMenu'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { ChatInterface } from './components/ChatInterface'
 import { ConnectionRequestModal } from './components/ConnectionRequestModal'
@@ -175,6 +176,7 @@ function ChatApp() {
   return (
     <div className="min-h-screen">
       <ThemeToggle />
+      <UserMenu />
       
       {/* Active Call Interface */}
       {(callState.status === 'calling' || callState.status === 'active') && 
