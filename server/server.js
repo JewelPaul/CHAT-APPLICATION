@@ -11,6 +11,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMessage, validateMediaUpload, calculateBase64Size, Logger } = require('./utils');
 const { version } = require('../package.json');
 const ChatDatabase = require('./database');
@@ -50,6 +51,33 @@ app.use(helmet({
 // Compression middleware
 app.use(compression());
 
+// Rate limiting for authentication endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 requests per window per IP
+  message: 'Too many authentication attempts, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    logger.warn('Rate limit exceeded', { 
+      ip: req.ip,
+      path: req.path 
+    });
+    res.status(429).json({
+      error: 'Too many requests, please try again later'
+    });
+  }
+});
+
+// Rate limiting for general API endpoints
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per window per IP
+  message: 'Too many API requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Initialize database
 const db = new ChatDatabase();
 
@@ -76,7 +104,7 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 /**
  * Register new user
  */
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const { username, displayName, email, password, publicKey, avatarUrl } = req.body;
 
@@ -145,7 +173,7 @@ app.post('/api/auth/register', async (req, res) => {
 /**
  * Login user
  */
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -193,7 +221,7 @@ app.post('/api/auth/login', async (req, res) => {
 /**
  * Verify token and get user info
  */
-app.get('/api/auth/me', (req, res) => {
+app.get('/api/auth/me', apiLimiter, (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -225,7 +253,7 @@ app.get('/api/auth/me', (req, res) => {
 /**
  * Search users by username
  */
-app.get('/api/users/search', (req, res) => {
+app.get('/api/users/search', apiLimiter, (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -261,7 +289,7 @@ app.get('/api/users/search', (req, res) => {
 /**
  * Get user friends/contacts
  */
-app.get('/api/friends', (req, res) => {
+app.get('/api/friends', apiLimiter, (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -294,7 +322,7 @@ app.get('/api/friends', (req, res) => {
 /**
  * Send friend request
  */
-app.post('/api/friends/request', (req, res) => {
+app.post('/api/friends/request', apiLimiter, (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -343,7 +371,7 @@ app.post('/api/friends/request', (req, res) => {
 /**
  * Respond to friend request
  */
-app.post('/api/friends/respond', (req, res) => {
+app.post('/api/friends/respond', apiLimiter, (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
