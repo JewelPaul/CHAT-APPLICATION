@@ -60,7 +60,7 @@ export function getExistingKey(): string | null {
  * Returns true if key matches CW-XXXX-XXXX-XXXX pattern
  */
 export function isValidDeviceKey(key: string): boolean {
-  const pattern = /^CW-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
+  const pattern = /^CW-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}$/;
   return pattern.test(key);
 }
 

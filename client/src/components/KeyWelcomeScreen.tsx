@@ -32,7 +32,7 @@ export function KeyWelcomeScreen({ deviceKey, onContinue }: KeyWelcomeScreenProp
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <Logo className="w-24 h-24 text-white" />
+            <Logo size="large" className="text-white" />
           </div>
           <h1 className="text-5xl font-bold text-white mb-2">Welcome to ChatWave</h1>
           <p className="text-white/90 text-xl">
