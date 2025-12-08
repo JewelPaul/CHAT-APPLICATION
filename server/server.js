@@ -727,9 +727,7 @@ io.on('connection', (socket) => {
             
             // Note: For legacy mode, we still use sockets map with userCode
             // New authenticated mode uses userId
-            if (!sockets.has(socket.id)) {
-                sockets.set(socket.id, userCode);
-            }
+            sockets.set(socket.id, userCode);
             
             socket.emit('registered', { 
                 code: userCode,

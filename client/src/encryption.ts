@@ -5,7 +5,7 @@
  */
 
 // Key derivation settings
-const PBKDF2_ITERATIONS = 100000;
+const PBKDF2_ITERATIONS = 600000; // OWASP 2024 recommendation
 const PBKDF2_HASH = 'SHA-256';
 const AES_KEY_LENGTH = 256;
 
