@@ -12,8 +12,7 @@ const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
-const cors = require('cors');
-const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMessage, validateMediaUpload, calculateBase64Size, Logger } = require('./utils');
+const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMediaUpload, Logger } = require('./utils');
 const { version } = require('../package.json');
 
 const logger = new Logger(process.env.LOG_LEVEL || 'info');
@@ -22,12 +21,6 @@ const app = express();
 
 // Parse JSON bodies
 app.use(express.json({ limit: '10mb' }));
-
-// Enable CORS for all routes
-app.use(cors({
-  origin: process.env.ORIGIN || '*',
-  credentials: true
-}));
 
 // Security middleware
 app.use(helmet({
@@ -54,7 +47,7 @@ const apiLimiter = rateLimit({
 });
 
 // Simple health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', apiLimiter, (req, res) => {
   res.json({ 
     status: 'ok', 
     version,
@@ -86,9 +79,6 @@ const users = new Map();
 
 // Map of socketId -> userCode
 const sockets = new Map();
-
-// Map of userCode -> online user info (for authenticated mode compatibility)
-const onlineUsers = new Map();
 
 // Map of roomId -> room data
 const chatRooms = new Map();
@@ -126,54 +116,6 @@ function checkUploadRateLimit(userCode) {
     
     userLimit.count++;
     return true;
-}
-
-/**
- * Generate unique room ID for two users
- */
-function generateRoomId(user1, user2) {
-    return [user1, user2].sort().join('-');
-}
-
-/**
- * Clean up user data on disconnect
- */
-function cleanupUser(socketId) {
-    const userCode = sockets.get(socketId);
-    if (userCode) {
-        logger.info('Cleaning up user', { userCode, socketId });
-        
-        // Remove from users map
-        users.delete(userCode);
-        sockets.delete(socketId);
-        
-        // Clean up pending invites
-        pendingInvites.delete(userCode);
-        
-        // Clean up rate limiting
-        uploadRateLimit.delete(userCode);
-        
-        // Clean up chat rooms where this user participated
-        for (const [roomId, room] of chatRooms.entries()) {
-            if (room.user1 === userCode || room.user2 === userCode) {
-                // Notify the other user
-                const otherUser = room.user1 === userCode ? room.user2 : room.user1;
-                const otherUserData = users.get(otherUser);
-                if (otherUserData) {
-                    io.to(otherUserData.socketId).emit('user-disconnected', { userCode });
-                }
-                
-                // Remove room and associated media
-                for (const message of room.messages) {
-                    if (message.type === 'media' && message.mediaId) {
-                        mediaStorage.delete(message.mediaId);
-                    }
-                }
-                chatRooms.delete(roomId);
-                logger.debug('Removed chat room', { roomId, userCode });
-            }
-        }
-    }
 }
 
 io.on('connection', (socket) => {
@@ -315,7 +257,7 @@ io.on('connection', (socket) => {
             // Join room
             socket.join(roomId);
             const fromSocket = io.sockets.sockets.get(fromUser.socketId);
-            if (fromSocket) fromSocket.join(roomId);
+            if (fromSocket) {fromSocket.join(roomId);}
             
             // Notify both
             const accepterName = users.get(accepterKey)?.name || accepterKey;
@@ -343,9 +285,9 @@ io.on('connection', (socket) => {
     socket.on('reject-request', (data) => {
         try {
             const rejecterKey = sockets.get(socket.id);
-            if (!rejecterKey) return;
+            if (!rejecterKey) {return;}
 
-            if (!data || !data.fromKey) return;
+            if (!data || !data.fromKey) {return;}
 
             const { fromKey } = data;
             const fromUser = users.get(fromKey);
@@ -371,7 +313,7 @@ io.on('connection', (socket) => {
     socket.on('send-message', (data) => {
         try {
             const senderKey = sockets.get(socket.id);
-            if (!senderKey) return;
+            if (!senderKey) {return;}
 
             if (!data || !data.roomId || !data.message) {
                 return;
@@ -549,7 +491,7 @@ io.on('connection', (socket) => {
     socket.on('typing-start', (data) => {
         try {
             const key = sockets.get(socket.id);
-            if (!key || !data || !data.roomId) return;
+            if (!key || !data || !data.roomId) {return;}
             
             const { roomId } = data;
             socket.to(roomId).emit('user-typing', { userKey: key });
@@ -561,7 +503,7 @@ io.on('connection', (socket) => {
     socket.on('typing-stop', (data) => {
         try {
             const key = sockets.get(socket.id);
-            if (!key || !data || !data.roomId) return;
+            if (!key || !data || !data.roomId) {return;}
             
             const { roomId } = data;
             socket.to(roomId).emit('user-stopped-typing', { userKey: key });

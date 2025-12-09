@@ -60,7 +60,7 @@ export function AddUserModal({
       }
     }
 
-    const handleUserNotFound = (data: { targetKey: string }) => {
+    const handleUserNotFound = () => {
       setState('not-found')
       setErrorMessage('User not found or offline. They need to be online to receive your request.')
     }

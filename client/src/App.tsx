@@ -17,7 +17,6 @@ function ChatApp() {
   const [deviceKey, setDeviceKey] = useState<string | null>(null)
   const [showWelcome, setShowWelcome] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [socketConnected, setSocketConnected] = useState(false)
 
   const [incomingCall, setIncomingCall] = useState<{
     from: User
@@ -38,10 +37,7 @@ function ChatApp() {
         setShowWelcome(isFirstTime)
         
         // Connect socket with device key
-        console.log('Connecting socket with key:', key)
         await socketService.connect(key, key)
-        setSocketConnected(true)
-        console.log('Socket connected successfully')
       } catch (error) {
         console.error('Failed to initialize:', error)
         addNotification('error', 'Failed to connect to server')

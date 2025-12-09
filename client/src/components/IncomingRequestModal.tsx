@@ -2,7 +2,7 @@
  * Modal for handling incoming connection requests
  */
 
-import { UserPlus, X } from 'lucide-react'
+import { UserPlus } from 'lucide-react'
 
 interface IncomingRequestModalProps {
   fromKey: string

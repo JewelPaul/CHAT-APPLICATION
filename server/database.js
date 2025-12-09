@@ -143,7 +143,7 @@ class ChatDatabase {
       }
     });
 
-    if (fields.length === 0) return;
+    if (fields.length === 0) {return;}
 
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(userId);

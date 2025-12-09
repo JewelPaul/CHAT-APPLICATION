@@ -79,11 +79,11 @@ class SocketService {
   }
 
   // Event listeners
-  on(event: string, callback: (...args: any[]) => void): void {
+  on(event: string, callback: (...args: unknown[]) => void): void {
     this.socket?.on(event, callback)
   }
 
-  off(event: string, callback?: (...args: any[]) => void): void {
+  off(event: string, callback?: (...args: unknown[]) => void): void {
     if (callback) {
       this.socket?.off(event, callback)
     } else {
