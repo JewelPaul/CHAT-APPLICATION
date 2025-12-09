@@ -12,8 +12,7 @@ const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
-const cors = require('cors');
-const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMessage, validateMediaUpload, calculateBase64Size, Logger } = require('./utils');
+const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMediaUpload, Logger } = require('./utils');
 const { version } = require('../package.json');
 
 const logger = new Logger(process.env.LOG_LEVEL || 'info');
@@ -22,12 +21,6 @@ const app = express();
 
 // Parse JSON bodies
 app.use(express.json({ limit: '10mb' }));
-
-// Enable CORS for all routes
-app.use(cors({
-  origin: process.env.ORIGIN || '*',
-  credentials: true
-}));
 
 // Security middleware
 app.use(helmet({
@@ -54,7 +47,7 @@ const apiLimiter = rateLimit({
 });
 
 // Simple health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', apiLimiter, (req, res) => {
   res.json({ 
     status: 'ok', 
     version,
@@ -86,9 +79,6 @@ const users = new Map();
 
 // Map of socketId -> userCode
 const sockets = new Map();
-
-// Map of userCode -> online user info (for authenticated mode compatibility)
-const onlineUsers = new Map();
 
 // Map of roomId -> room data
 const chatRooms = new Map();
@@ -128,54 +118,6 @@ function checkUploadRateLimit(userCode) {
     return true;
 }
 
-/**
- * Generate unique room ID for two users
- */
-function generateRoomId(user1, user2) {
-    return [user1, user2].sort().join('-');
-}
-
-/**
- * Clean up user data on disconnect
- */
-function cleanupUser(socketId) {
-    const userCode = sockets.get(socketId);
-    if (userCode) {
-        logger.info('Cleaning up user', { userCode, socketId });
-        
-        // Remove from users map
-        users.delete(userCode);
-        sockets.delete(socketId);
-        
-        // Clean up pending invites
-        pendingInvites.delete(userCode);
-        
-        // Clean up rate limiting
-        uploadRateLimit.delete(userCode);
-        
-        // Clean up chat rooms where this user participated
-        for (const [roomId, room] of chatRooms.entries()) {
-            if (room.user1 === userCode || room.user2 === userCode) {
-                // Notify the other user
-                const otherUser = room.user1 === userCode ? room.user2 : room.user1;
-                const otherUserData = users.get(otherUser);
-                if (otherUserData) {
-                    io.to(otherUserData.socketId).emit('user-disconnected', { userCode });
-                }
-                
-                // Remove room and associated media
-                for (const message of room.messages) {
-                    if (message.type === 'media' && message.mediaId) {
-                        mediaStorage.delete(message.mediaId);
-                    }
-                }
-                chatRooms.delete(roomId);
-                logger.debug('Removed chat room', { roomId, userCode });
-            }
-        }
-    }
-}
-
 io.on('connection', (socket) => {
     logger.info('New socket connected', { socketId: socket.id });
 
@@ -192,192 +134,231 @@ io.on('connection', (socket) => {
     socket.on('register', (data) => {
         try {
             if (!data || typeof data !== 'object') {
-                socket.emit('connection-error', { error: 'Invalid registration data' });
+                socket.emit('error', { message: 'Invalid registration data' });
                 return;
             }
 
-            const { code, deviceName, avatar } = data;
+            const { deviceKey, deviceName } = data;
 
-            if (!validateUserCode(code)) {
-                socket.emit('connection-error', { error: 'Invalid code format' });
+            if (!deviceKey || !validateUserCode(deviceKey)) {
+                socket.emit('error', { message: 'Invalid device key format' });
                 return;
             }
 
-            const userCode = code.trim();
-            const sanitizedDeviceName = sanitizeMessage(deviceName || 'Unknown Device');
+            const key = deviceKey.trim();
+            const name = sanitizeMessage(deviceName || key);
             
             // Register user with device key
-            users.set(userCode, {
+            users.set(key, {
                 socketId: socket.id,
-                deviceName: sanitizedDeviceName,
-                avatar: avatar || null,
-                connectionTime: new Date()
+                name: name,
+                online: true
             });
             
-            sockets.set(socket.id, userCode);
+            sockets.set(socket.id, key);
             
             socket.emit('registered', { 
-                code: userCode,
-                deviceName: sanitizedDeviceName
+                success: true,
+                deviceKey: key
             });
             
-            logger.info('User registered with device key', { userCode, deviceName: sanitizedDeviceName, socketId: socket.id });
+            logger.info('User registered', { deviceKey: key, name, socketId: socket.id });
         } catch (error) {
             logger.error('Error in register handler', { error: error.message, socketId: socket.id });
-            socket.emit('connection-error', { error: 'Registration failed' });
+            socket.emit('error', { message: 'Registration failed' });
         }
     });
 
-    // Send connection invite
+    // CONNECTION REQUEST
     socket.on('connection-request', (data) => {
         try {
-            const requesterCode = sockets.get(socket.id);
-            if (!requesterCode) {
-                socket.emit('connection-error', { error: 'Not registered' });
+            const senderKey = sockets.get(socket.id);
+            if (!senderKey) {
+                socket.emit('error', { message: 'Not registered' });
                 return;
             }
 
-            if (!data || typeof data !== 'object' || !validateUserCode(data.code)) {
-                socket.emit('connection-error', { error: 'Invalid connection code' });
+            if (!data || typeof data !== 'object' || !data.targetKey) {
+                socket.emit('error', { message: 'Invalid request data' });
                 return;
             }
 
-            const targetCode = data.code.trim();
-            const targetUser = users.get(targetCode);
+            const { targetKey } = data;
+            const target = users.get(targetKey);
             
-            if (targetUser) {
-                // Add to pending invites
-                if (!pendingInvites.has(targetCode)) {
-                    pendingInvites.set(targetCode, new Set());
-                }
-                pendingInvites.get(targetCode).add(requesterCode);
-                
-                // Send invite to target user
-                io.to(targetUser.socketId).emit('connection-request', { 
-                    code: requesterCode,
-                    deviceName: users.get(requesterCode).deviceName,
-                    avatar: users.get(requesterCode).avatar
-                });
-                
-                // Confirm to requester
-                socket.emit('connection-request-sent', { code: targetCode });
-                
-                logger.info('Connection request sent', { from: requesterCode, to: targetCode });
-            } else {
-                socket.emit('connection-error', { error: 'User not found or offline' });
+            if (!target || !target.online) {
+                socket.emit('user-not-found', { targetKey });
+                return;
             }
+            
+            // Add to pending invites
+            if (!pendingInvites.has(targetKey)) {
+                pendingInvites.set(targetKey, new Set());
+            }
+            pendingInvites.get(targetKey).add(senderKey);
+            
+            // Send to target
+            io.to(target.socketId).emit('incoming-request', {
+                fromKey: senderKey,
+                fromName: users.get(senderKey)?.name || senderKey
+            });
+            
+            socket.emit('request-sent', { targetKey });
+            
+            logger.info('Connection request sent', { from: senderKey, to: targetKey });
         } catch (error) {
             logger.error('Error in connection-request handler', { error: error.message, socketId: socket.id });
-            socket.emit('connection-error', { error: 'Connection request failed' });
+            socket.emit('error', { message: 'Connection request failed' });
         }
     });
 
-    // Accept connection invite
-    socket.on('connection-accept', ({ code }) => {
-        const accepterCode = sockets.get(socket.id);
-        if (!accepterCode) {
-            socket.emit('connection-error', { error: 'Not registered' });
-            return;
-        }
+    // ACCEPT REQUEST
+    socket.on('accept-request', (data) => {
+        try {
+            const accepterKey = sockets.get(socket.id);
+            if (!accepterKey) {
+                socket.emit('error', { message: 'Not registered' });
+                return;
+            }
 
-        const requesterCode = code.trim();
-        const requesterUser = users.get(requesterCode);
-        
-        if (requesterUser && pendingInvites.has(accepterCode) && 
-            pendingInvites.get(accepterCode).has(requesterCode)) {
+            if (!data || !data.fromKey) {
+                socket.emit('error', { message: 'Invalid request' });
+                return;
+            }
+
+            const { fromKey } = data;
+            const fromUser = users.get(fromKey);
+            
+            if (!fromUser) {
+                socket.emit('error', { message: 'User offline' });
+                return;
+            }
+            
+            // Check if request exists
+            if (!pendingInvites.has(accepterKey) || !pendingInvites.get(accepterKey).has(fromKey)) {
+                socket.emit('error', { message: 'No pending request from this user' });
+                return;
+            }
             
             // Remove from pending invites
-            pendingInvites.get(accepterCode).delete(requesterCode);
+            pendingInvites.get(accepterKey).delete(fromKey);
+            
+            const roomId = [accepterKey, fromKey].sort().join('_');
             
             // Create chat room
-            const roomId = generateRoomId(accepterCode, requesterCode);
             chatRooms.set(roomId, {
-                user1: accepterCode,
-                user2: requesterCode,
+                user1: accepterKey,
+                user2: fromKey,
                 messages: [],
                 media: new Set(),
                 createdAt: new Date()
             });
             
-            // Notify both users
-            io.to(requesterUser.socketId).emit('connection-accepted', { 
-                code: accepterCode,
-                roomId,
-                deviceName: users.get(accepterCode).deviceName,
-                avatar: users.get(accepterCode).avatar
-            });
+            // Join room
+            socket.join(roomId);
+            const fromSocket = io.sockets.sockets.get(fromUser.socketId);
+            if (fromSocket) {
+                fromSocket.join(roomId);
+            }
+            
+            // Notify both
+            const accepterName = users.get(accepterKey)?.name || accepterKey;
+            const fromName = fromUser.name || fromKey;
             
             socket.emit('connection-established', { 
-                code: requesterCode,
-                roomId,
-                deviceName: users.get(requesterCode).deviceName,
-                avatar: users.get(requesterCode).avatar
+                partnerKey: fromKey, 
+                partnerName: fromName, 
+                roomId 
+            });
+            io.to(fromUser.socketId).emit('connection-established', { 
+                partnerKey: accepterKey, 
+                partnerName: accepterName, 
+                roomId 
             });
             
-            console.log(`[CONNECTED] ${accepterCode} <-> ${requesterCode} (Room: ${roomId})`);
-        } else {
-            socket.emit('connection-error', { error: 'Invalid connection request' });
+            logger.info('Connection established', { accepter: accepterKey, requester: fromKey, roomId });
+        } catch (error) {
+            logger.error('Error in accept-request handler', { error: error.message, socketId: socket.id });
+            socket.emit('error', { message: 'Failed to accept request' });
         }
     });
 
-    // Handle text messages
-    socket.on('message', (data) => {
+    // REJECT REQUEST
+    socket.on('reject-request', (data) => {
         try {
-            const senderCode = sockets.get(socket.id);
-            if (!senderCode) {
-                socket.emit('message-error', { error: 'Not registered' });
+            const rejecterKey = sockets.get(socket.id);
+            if (!rejecterKey) {return;}
+
+            if (!data || !data.fromKey) {return;}
+
+            const { fromKey } = data;
+            const fromUser = users.get(fromKey);
+            
+            // Remove from pending invites
+            if (pendingInvites.has(rejecterKey)) {
+                pendingInvites.get(rejecterKey).delete(fromKey);
+            }
+            
+            if (fromUser) {
+                io.to(fromUser.socketId).emit('request-rejected', { 
+                    message: 'Request declined' 
+                });
+            }
+            
+            logger.info('Connection request rejected', { rejecter: rejecterKey, requester: fromKey });
+        } catch (error) {
+            logger.error('Error in reject-request handler', { error: error.message });
+        }
+    });
+
+    // SEND MESSAGE
+    socket.on('send-message', (data) => {
+        try {
+            const senderKey = sockets.get(socket.id);
+            if (!senderKey) {
+                socket.emit('error', { message: 'Not registered' });
                 return;
             }
 
-            if (!data || typeof data !== 'object') {
-                socket.emit('message-error', { error: 'Invalid message data' });
+            if (!data || !data.roomId || !data.message) {
+                socket.emit('error', { message: 'Invalid message data' });
                 return;
             }
 
-            const { to, message, roomId } = data;
-
-            if (!validateUserCode(to) || !validateMessage(message) || !roomId) {
-                socket.emit('message-error', { error: 'Invalid message format' });
-                return;
-            }
-
-            const sanitizedMessage = sanitizeMessage(message);
-            const targetUser = users.get(to);
+            const { roomId, message } = data;
             const room = chatRooms.get(roomId);
             
-            if (targetUser && room && 
-                (room.user1 === senderCode || room.user2 === senderCode) &&
-                (room.user1 === to || room.user2 === to)) {
-                
-                // Store message in room (ephemeral)
-                const messageData = {
-                    id: Date.now() + Math.random(),
-                    from: senderCode,
-                    to: to,
-                    message: sanitizedMessage,
-                    timestamp: new Date(),
-                    type: 'text'
-                };
-                
-                room.messages.push(messageData);
-                
-                // Forward to recipient
-                io.to(targetUser.socketId).emit('message', messageData);
-                
-                // Confirm to sender
-                socket.emit('message-sent', messageData);
-                
-                logger.debug('Message sent', { 
-                    from: senderCode, 
-                    to, 
-                    length: sanitizedMessage.length 
-                });
-            } else {
-                socket.emit('message-error', { error: 'Invalid message recipient or room' });
+            if (!room) {
+                socket.emit('error', { message: 'Room not found' });
+                return;
             }
+            
+            // Verify sender is in room
+            if (room.user1 !== senderKey && room.user2 !== senderKey) {
+                socket.emit('error', { message: 'Not authorized for this room' });
+                return;
+            }
+            
+            const sanitizedMessage = sanitizeMessage(message);
+            
+            const msgData = {
+                id: `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+                fromKey: senderKey,
+                content: sanitizedMessage,
+                timestamp: Date.now(),
+                roomId
+            };
+            
+            // Store message in room
+            room.messages.push(msgData);
+            
+            // Emit to entire room (sender and recipient)
+            io.to(roomId).emit('new-message', msgData);
+            
+            logger.debug('Message sent', { from: senderKey, roomId, length: sanitizedMessage.length });
         } catch (error) {
-            logger.error('Error in message handler', { error: error.message, socketId: socket.id });
-            socket.emit('message-error', { error: 'Message failed to send' });
+            logger.error('Error in send-message handler', { error: error.message, socketId: socket.id });
+            socket.emit('error', { message: 'Failed to send message' });
         }
     });
 
@@ -515,18 +496,14 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Typing indicators
+    // TYPING
     socket.on('typing-start', (data) => {
         try {
-            const senderCode = sockets.get(socket.id);
-            if (!senderCode || !data || !data.to) {
-                return;
-            }
+            const key = sockets.get(socket.id);
+            if (!key || !data || !data.roomId) {return;}
             
-            const targetUser = users.get(data.to);
-            if (targetUser) {
-                io.to(targetUser.socketId).emit('typing-start', { from: senderCode });
-            }
+            const { roomId } = data;
+            socket.to(roomId).emit('user-typing', { userKey: key });
         } catch (error) {
             logger.error('Error in typing-start handler', { error: error.message });
         }
@@ -534,54 +511,50 @@ io.on('connection', (socket) => {
 
     socket.on('typing-stop', (data) => {
         try {
-            const senderCode = sockets.get(socket.id);
-            if (!senderCode || !data || !data.to) {
-                return;
-            }
+            const key = sockets.get(socket.id);
+            if (!key || !data || !data.roomId) {return;}
             
-            const targetUser = users.get(data.to);
-            if (targetUser) {
-                io.to(targetUser.socketId).emit('typing-stop', { from: senderCode });
-            }
+            const { roomId } = data;
+            socket.to(roomId).emit('user-stopped-typing', { userKey: key });
         } catch (error) {
             logger.error('Error in typing-stop handler', { error: error.message });
         }
     });
 
-    // Handle disconnect
+    // DISCONNECT
     socket.on('disconnect', (reason) => {
-        logger.info('Socket disconnected', { socketId: socket.id, reason });
-        
-        const userIdentifier = sockets.get(socket.id);
-        if (userIdentifier) {
-            // Check if it's an authenticated user (userId) or legacy user (userCode)
-            const onlineUser = onlineUsers.get(userIdentifier);
-            
-            if (onlineUser) {
-                // Authenticated user disconnect
-                onlineUsers.delete(userIdentifier);
+        try {
+            const key = sockets.get(socket.id);
+            if (key) {
+                logger.info('User disconnected', { deviceKey: key, socketId: socket.id, reason });
                 
-                // Update database status
-                db.updateUserStatus(userIdentifier, 'offline', new Date());
+                const user = users.get(key);
+                if (user) {
+                    user.online = false;
+                }
+                sockets.delete(socket.id);
                 
-                // Notify friends
-                const friends = db.getFriends(userIdentifier);
-                friends.forEach(friend => {
-                    const friendSocket = onlineUsers.get(friend.id);
-                    if (friendSocket) {
-                        io.to(friendSocket.socketId).emit('friend-offline', {
-                            userId: userIdentifier
-                        });
+                // Clean up pending invites
+                pendingInvites.delete(key);
+                
+                // Notify other users
+                socket.broadcast.emit('user-offline', { deviceKey: key });
+                
+                // Clean up chat rooms and media
+                for (const [roomId, room] of chatRooms.entries()) {
+                    if (room.user1 === key || room.user2 === key) {
+                        // Remove room and associated media after disconnect
+                        for (const message of room.messages) {
+                            if (message.type === 'media' && message.mediaId) {
+                                mediaStorage.delete(message.mediaId);
+                            }
+                        }
+                        chatRooms.delete(roomId);
                     }
-                });
-                
-                logger.info('Authenticated user disconnected', { userId: userIdentifier });
-            } else {
-                // Legacy ephemeral mode cleanup
-                cleanupUser(socket.id);
+                }
             }
-            
-            sockets.delete(socket.id);
+        } catch (error) {
+            logger.error('Error in disconnect handler', { error: error.message, socketId: socket.id });
         }
     });
 

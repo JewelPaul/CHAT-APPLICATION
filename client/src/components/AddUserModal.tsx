@@ -60,23 +60,24 @@ export function AddUserModal({
       }
     }
 
-    const handleConnectionError = (data: { error: string }) => {
-      // Check if it's a "user not found" error
-      if (data.error?.toLowerCase().includes('not found') || data.error?.toLowerCase().includes('offline')) {
-        setState('not-found')
-        setErrorMessage('User not found or offline. They need to be online to receive your request.')
-      } else {
-        setState('error')
-        setErrorMessage(data.error || 'Failed to send request')
-      }
+    const handleUserNotFound = () => {
+      setState('not-found')
+      setErrorMessage('User not found or offline. They need to be online to receive your request.')
     }
 
-    socketService.on('connection-request-sent', handleRequestSent)
-    socketService.on('connection-error', handleConnectionError)
+    const handleError = (data: { message: string }) => {
+      setState('error')
+      setErrorMessage(data.message || 'Failed to send request')
+    }
+
+    socketService.on('request-sent', handleRequestSent)
+    socketService.on('user-not-found', handleUserNotFound)
+    socketService.on('error', handleError)
 
     return () => {
-      socketService.off('connection-request-sent', handleRequestSent)
-      socketService.off('connection-error', handleConnectionError)
+      socketService.off('request-sent', handleRequestSent)
+      socketService.off('user-not-found', handleUserNotFound)
+      socketService.off('error', handleError)
     }
   }, [isOpen, userKey, onRequestSent])
 
@@ -109,7 +110,7 @@ export function AddUserModal({
     
     // Send connection request
     setState('sending')
-    socketService.sendConnectionRequest(cleanKey)
+    socketService.sendRequest(cleanKey)
   }
 
   // Auto-format input as user types

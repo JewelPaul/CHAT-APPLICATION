@@ -25,20 +25,33 @@ function ChatApp() {
 
   const { addNotification } = useNotifications()
 
-  // Initialize device key on mount
+  // Initialize device key and connect socket
   useEffect(() => {
-    // Check if first time user
-    if (isFirstTimeUser()) {
-      const newKey = getDeviceKey(); // Generates and stores
-      setDeviceKey(newKey);
-      setShowWelcome(true); // Show welcome screen with key
-    } else {
-      const existingKey = getDeviceKey();
-      setDeviceKey(existingKey);
-      setShowWelcome(false); // Go straight to chat
+    const initialize = async () => {
+      try {
+        // Check if first time user
+        const isFirstTime = isFirstTimeUser()
+        const key = getDeviceKey() // Gets or generates
+        
+        setDeviceKey(key)
+        setShowWelcome(isFirstTime)
+        
+        // Connect socket with device key
+        await socketService.connect(key, key)
+      } catch (error) {
+        console.error('Failed to initialize:', error)
+        addNotification('error', 'Failed to connect to server')
+      } finally {
+        setIsLoading(false)
+      }
     }
-    setIsLoading(false);
-  }, []);
+
+    initialize()
+
+    return () => {
+      socketService.disconnect()
+    }
+  }, [addNotification])
 
   // Create a dummy user for WebRTC based on device key
   const dummyUser = deviceKey ? {
