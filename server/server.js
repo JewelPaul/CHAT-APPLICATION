@@ -257,7 +257,9 @@ io.on('connection', (socket) => {
             // Join room
             socket.join(roomId);
             const fromSocket = io.sockets.sockets.get(fromUser.socketId);
-            if (fromSocket) {fromSocket.join(roomId);}
+            if (fromSocket) {
+                fromSocket.join(roomId);
+            }
             
             // Notify both
             const accepterName = users.get(accepterKey)?.name || accepterKey;
@@ -313,9 +315,13 @@ io.on('connection', (socket) => {
     socket.on('send-message', (data) => {
         try {
             const senderKey = sockets.get(socket.id);
-            if (!senderKey) {return;}
+            if (!senderKey) {
+                socket.emit('error', { message: 'Not registered' });
+                return;
+            }
 
             if (!data || !data.roomId || !data.message) {
+                socket.emit('error', { message: 'Invalid message data' });
                 return;
             }
 
@@ -323,18 +329,20 @@ io.on('connection', (socket) => {
             const room = chatRooms.get(roomId);
             
             if (!room) {
+                socket.emit('error', { message: 'Room not found' });
                 return;
             }
             
             // Verify sender is in room
             if (room.user1 !== senderKey && room.user2 !== senderKey) {
+                socket.emit('error', { message: 'Not authorized for this room' });
                 return;
             }
             
             const sanitizedMessage = sanitizeMessage(message);
             
             const msgData = {
-                id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                id: `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
                 fromKey: senderKey,
                 content: sanitizedMessage,
                 timestamp: Date.now(),
@@ -350,6 +358,7 @@ io.on('connection', (socket) => {
             logger.debug('Message sent', { from: senderKey, roomId, length: sanitizedMessage.length });
         } catch (error) {
             logger.error('Error in send-message handler', { error: error.message, socketId: socket.id });
+            socket.emit('error', { message: 'Failed to send message' });
         }
     });
 

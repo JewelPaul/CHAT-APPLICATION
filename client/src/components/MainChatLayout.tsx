@@ -273,7 +273,7 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
     try {
       // Save message to IndexedDB first
       const db = await getDatabase()
-      const msgId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const msgId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
       const newMessage: StoredMessage = {
         id: msgId,
         chatId: selectedContact.id,
