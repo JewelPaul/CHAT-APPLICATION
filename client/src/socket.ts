@@ -1,12 +1,9 @@
 import { io, Socket } from 'socket.io-client'
-import type { ConnectionStatus } from './types'
 
 class SocketService {
   private socket: Socket | null = null
-  private connectionStatus: ConnectionStatus = 'disconnected'
-  private listeners: Map<string, ((...args: unknown[]) => void)[]> = new Map()
 
-  connect(): Promise<void> {
+  connect(deviceKey: string, deviceName: string): Promise<Socket> {
     return new Promise((resolve, reject) => {
       // Use the current domain for socket connection, or localhost for development
       const socketUrl = process.env.NODE_ENV === 'development' 
@@ -22,58 +19,27 @@ class SocketService {
       })
 
       this.socket.on('connect', () => {
-        this.connectionStatus = 'connected'
-        this.emit('connection-status', 'connected')
-        resolve()
+        console.log('Socket connected:', this.socket?.id)
+        // Register with device key on connection
+        this.socket?.emit('register', { deviceKey, deviceName })
+      })
+
+      this.socket.on('registered', (data) => {
+        console.log('Registered successfully:', data)
+        resolve(this.socket!)
+      })
+
+      this.socket.on('error', (data) => {
+        console.error('Socket error:', data)
       })
 
       this.socket.on('disconnect', () => {
-        this.connectionStatus = 'disconnected'
-        this.emit('connection-status', 'disconnected')
+        console.log('Socket disconnected')
       })
 
       this.socket.on('connect_error', (error) => {
-        this.connectionStatus = 'error'
-        this.emit('connection-status', 'error')
+        console.error('Connection error:', error)
         reject(error)
-      })
-
-      // Forward all socket events to listeners
-      this.setupEventForwarding()
-    })
-  }
-
-  private setupEventForwarding(): void {
-    if (!this.socket) return
-
-    const events = [
-      'registered',
-      'connection-error',
-      'connection-request',
-      'connection-request-sent',
-      'connection-accepted',
-      'connection-established',
-      'message',
-      'message-sent',
-      'message-error',
-      'media-message',
-      'media-sent',
-      'media-error',
-      'media-data',
-      'typing-start',
-      'typing-stop',
-      'user-disconnected',
-      'call-incoming',
-      'call-accepted',
-      'call-rejected',
-      'call-ended',
-      'call-error',
-      'webrtc-signal'
-    ]
-
-    events.forEach(event => {
-      this.socket?.on(event, (data) => {
-        this.emit(event, data)
       })
     })
   }
@@ -83,95 +49,46 @@ class SocketService {
       this.socket.disconnect()
       this.socket = null
     }
-    this.connectionStatus = 'disconnected'
-    this.listeners.clear()
   }
 
-  register(code: string, deviceName: string, avatar?: string): void {
-    this.socket?.emit('register', { code, deviceName, avatar })
+  // Connection requests
+  sendRequest(targetKey: string): void {
+    this.socket?.emit('connection-request', { targetKey })
   }
 
-  sendConnectionRequest(code: string): void {
-    this.socket?.emit('connection-request', { code })
+  acceptRequest(fromKey: string): void {
+    this.socket?.emit('accept-request', { fromKey })
   }
 
-  acceptConnection(code: string): void {
-    this.socket?.emit('connection-accept', { code })
+  rejectRequest(fromKey: string): void {
+    this.socket?.emit('reject-request', { fromKey })
   }
 
-  sendMessage(to: string, message: string, roomId: string): void {
-    this.socket?.emit('message', { to, message, roomId })
+  // Messages
+  sendMessage(roomId: string, message: string): void {
+    this.socket?.emit('send-message', { roomId, message })
   }
 
-  sendMediaUpload(to: string, roomId: string, mediaData: string, filename: string, mimeType: string): void {
-    this.socket?.emit('media-upload', { to, roomId, mediaData, filename, mimeType })
+  // Typing indicators
+  startTyping(roomId: string): void {
+    this.socket?.emit('typing-start', { roomId })
   }
 
-  getMedia(mediaId: string): void {
-    this.socket?.emit('get-media', { mediaId })
+  stopTyping(roomId: string): void {
+    this.socket?.emit('typing-stop', { roomId })
   }
 
-  sendTypingStart(to: string, roomId: string): void {
-    this.socket?.emit('typing-start', { to, roomId })
+  // Event listeners
+  on(event: string, callback: (...args: any[]) => void): void {
+    this.socket?.on(event, callback)
   }
 
-  sendTypingStop(to: string, roomId: string): void {
-    this.socket?.emit('typing-stop', { to, roomId })
-  }
-
-  // Call signaling methods
-  initiateCall(to: string, type: 'audio' | 'video'): void {
-    this.socket?.emit('call-initiate', { to, type })
-  }
-
-  acceptCall(from: string): void {
-    this.socket?.emit('call-accept', { from })
-  }
-
-  rejectCall(from: string): void {
-    this.socket?.emit('call-reject', { from })
-  }
-
-  endCall(to: string): void {
-    this.socket?.emit('call-end', { to })
-  }
-
-  sendWebRTCSignal(to: string, signal: RTCSessionDescriptionInit | RTCIceCandidateInit, signalType: 'offer' | 'answer' | 'ice-candidate'): void {
-    this.socket?.emit('webrtc-signal', { to, signal, signalType })
-  }
-
-  // Event listener management
-  on(event: string, callback: (...args: unknown[]) => void): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, [])
+  off(event: string, callback?: (...args: any[]) => void): void {
+    if (callback) {
+      this.socket?.off(event, callback)
+    } else {
+      this.socket?.off(event)
     }
-    this.listeners.get(event)?.push(callback)
-  }
-
-  off(event: string, callback?: (...args: unknown[]) => void): void {
-    if (!callback) {
-      this.listeners.delete(event)
-      return
-    }
-
-    const eventListeners = this.listeners.get(event)
-    if (eventListeners) {
-      const index = eventListeners.indexOf(callback)
-      if (index > -1) {
-        eventListeners.splice(index, 1)
-      }
-    }
-  }
-
-  private emit(event: string, data?: unknown): void {
-    const eventListeners = this.listeners.get(event)
-    if (eventListeners) {
-      eventListeners.forEach(callback => callback(data))
-    }
-  }
-
-  getConnectionStatus(): ConnectionStatus {
-    return this.connectionStatus
   }
 
   isConnected(): boolean {
@@ -179,6 +96,4 @@ class SocketService {
   }
 }
 
-// Export singleton instance
-export const socketService = new SocketService()
-export default socketService
+export default new SocketService()
