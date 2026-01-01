@@ -117,31 +117,31 @@ export function ChatArea({
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons - Royal Gold */}
         <div className="flex items-center gap-1">
           {onInitiateCall && (
             <>
               <button
                 onClick={() => onInitiateCall('audio')}
-                className="p-2.5 hover:bg-[rgba(255,255,255,0.1)] rounded-lg transition-colors"
+                className="p-2.5 hover:bg-bg-hover rounded-lg transition-all border border-transparent hover:border-gold-primary/30"
                 title="Voice Call"
               >
-                <Phone className="w-5 h-5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]" />
+                <Phone className="w-5 h-5 text-gold-primary" />
               </button>
               <button
                 onClick={() => onInitiateCall('video')}
-                className="p-2.5 hover:bg-[rgba(255,255,255,0.1)] rounded-lg transition-colors"
+                className="p-2.5 hover:bg-bg-hover rounded-lg transition-all border border-transparent hover:border-gold-primary/30"
                 title="Video Call"
               >
-                <Video className="w-5 h-5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]" />
+                <Video className="w-5 h-5 text-gold-primary" />
               </button>
             </>
           )}
           <button
-            className="p-2.5 hover:bg-[rgba(255,255,255,0.1)] rounded-lg transition-colors"
+            className="p-2.5 hover:bg-bg-hover rounded-lg transition-colors"
             title="More options"
           >
-            <MoreVertical className="w-5 h-5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]" />
+            <MoreVertical className="w-5 h-5 text-text-secondary hover:text-gold-primary" />
           </button>
         </div>
       </div>

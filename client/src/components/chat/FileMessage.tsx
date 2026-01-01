@@ -16,24 +16,27 @@ export function FileMessage({ filename, size, mimeType, onDownload }: FileMessag
   }
 
   const getFileIcon = () => {
-    if (mimeType?.includes('pdf')) return '📄'
-    if (mimeType?.includes('word') || mimeType?.includes('document')) return '📝'
-    if (mimeType?.includes('excel') || mimeType?.includes('spreadsheet')) return '📊'
-    if (mimeType?.includes('zip') || mimeType?.includes('compressed')) return '🗜️'
+    const ext = filename.split('.').pop()?.toLowerCase()
+    if (ext === 'pdf') return '📕'
+    if (['doc', 'docx'].includes(ext || '')) return '📘'
+    if (['xls', 'xlsx'].includes(ext || '')) return '📗'
+    if (['ppt', 'pptx'].includes(ext || '')) return '📙'
+    if (['zip', 'rar', '7z'].includes(ext || '')) return '📦'
+    if (['txt', 'md'].includes(ext || '')) return '📄'
     return '📎'
   }
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-xl min-w-[240px] max-w-[280px]">
-      <div className="flex-shrink-0 text-2xl">
+    <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-bg-card to-bg-hover border-2 border-gold-primary/20 hover:border-gold-primary/40 rounded-2xl min-w-[240px] max-w-[280px] transition-all group">
+      <div className="flex-shrink-0 text-3xl">
         {getFileIcon()}
       </div>
       
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+        <p className="text-sm font-semibold text-text-primary truncate">
           {filename}
         </p>
-        <p className="text-xs text-[var(--text-secondary)]">
+        <p className="text-xs text-gold-primary font-medium">
           {formatFileSize(size)}
         </p>
       </div>
@@ -41,10 +44,10 @@ export function FileMessage({ filename, size, mimeType, onDownload }: FileMessag
       {onDownload && (
         <button
           onClick={onDownload}
-          className="flex-shrink-0 p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors"
+          className="flex-shrink-0 p-2 bg-gold-primary/10 hover:bg-gold-primary/20 rounded-lg transition-all group-hover:scale-110"
           title="Download"
         >
-          <Download className="w-4 h-4 text-[var(--accent)]" />
+          <Download className="w-5 h-5 text-gold-primary" />
         </button>
       )}
     </div>

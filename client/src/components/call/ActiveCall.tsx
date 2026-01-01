@@ -64,38 +64,60 @@ export function ActiveCall({
   const isVideoCall = callState.type === 'video'
 
   return (
-    <div className="fixed inset-0 z-50 bg-[var(--bg-primary)] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-bg-dark flex flex-col">
       {/* Remote Video/Avatar */}
-      <div className="flex-1 relative flex items-center justify-center">
+      <div className="flex-1 relative flex items-center justify-center overflow-hidden">
         {isVideoCall && remoteStream ? (
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center gap-4">
-            <Avatar 
-              name={remoteUser.deviceName}
-              src={remoteUser.avatar}
-              size="lg"
+          <>
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
             />
+            {/* Gradient overlay for better UI visibility */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/80 pointer-events-none" />
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-bg-dark via-bg-surface to-bg-dark w-full h-full">
+            <div className="relative">
+              {/* Pulsing rings for voice call */}
+              <div className="absolute inset-0 animate-pulse-gold">
+                <div className="w-40 h-40 rounded-full border-2 border-gold-primary/30" />
+              </div>
+              <div className="absolute inset-0 animate-pulse-gold animation-delay-150">
+                <div className="w-44 h-44 rounded-full border-2 border-gold-primary/20" />
+              </div>
+              
+              {/* Avatar */}
+              <div className="relative w-40 h-40 bg-gradient-gold rounded-full flex items-center justify-center shadow-gold border-4 border-gold-dark">
+                <span className="text-7xl">👤</span>
+              </div>
+            </div>
+            
             <div className="text-center">
-              <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">
+              <h2 className="text-3xl font-bold text-white mb-2">
                 {remoteUser.deviceName}
               </h2>
-              <p className="text-[var(--text-secondary)]">
-                {callState.status === 'calling' ? 'Calling...' : formatDuration(callDuration)}
-              </p>
+              {callState.status === 'active' && (
+                <div className="flex items-center justify-center gap-2 mt-3">
+                  <div className="w-2 h-2 bg-online rounded-full animate-pulse" />
+                  <p className="text-gold-primary font-medium">
+                    Connected
+                  </p>
+                </div>
+              )}
+              {callState.status === 'calling' && (
+                <p className="text-gold-primary animate-pulse">Calling...</p>
+              )}
             </div>
           </div>
         )}
 
-        {/* Local Video (Picture-in-Picture) */}
+        {/* Local Video (Picture-in-Picture) - Royal Gold border */}
         {isVideoCall && localStream && (
           <div 
-            className="absolute top-4 right-4 w-32 h-48 rounded-xl overflow-hidden bg-[var(--bg-secondary)] border-2 border-[var(--border)] shadow-xl cursor-move"
+            className="absolute top-6 right-6 w-32 h-44 rounded-2xl overflow-hidden shadow-2xl border-2 border-gold-primary z-10"
             style={{ touchAction: 'none' }}
           >
             {callState.isVideoEnabled ? (
@@ -107,26 +129,32 @@ export function ActiveCall({
                 className="w-full h-full object-cover mirror"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-[var(--bg-tertiary)]">
-                <Avatar name="You" size="md" />
+              <div className="w-full h-full flex items-center justify-center bg-bg-card">
+                <div className="w-16 h-16 rounded-full bg-gradient-gold flex items-center justify-center">
+                  <span className="text-3xl">👤</span>
+                </div>
               </div>
             )}
           </div>
         )}
+
+        {/* Call Info Overlay - Royal Gold */}
+        <div className="absolute top-6 left-6 right-6 flex items-center justify-between z-10">
+          <div>
+            <p className="text-white font-semibold text-lg drop-shadow-lg">
+              {remoteUser.deviceName}
+            </p>
+            {callState.status === 'active' && (
+              <p className="text-gold-primary text-sm font-medium drop-shadow-lg">
+                {formatDuration(callDuration)}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Call Info & Controls */}
-      <div className="p-6 space-y-4">
-        {/* Call Duration (for audio calls or when video is off) */}
-        {(!isVideoCall || !remoteStream) && callState.status === 'active' && (
-          <div className="text-center">
-            <p className="text-lg text-[var(--text-secondary)]">
-              {formatDuration(callDuration)}
-            </p>
-          </div>
-        )}
-
-        {/* Call Controls */}
+      {/* Call Controls - Royal Gold styling */}
+      <div className="bg-gradient-to-t from-black/90 via-bg-surface/80 to-transparent backdrop-blur-xl p-6 pb-10">
         <div className="flex justify-center">
           <CallControls
             isMuted={callState.isMuted}

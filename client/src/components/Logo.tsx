@@ -22,8 +22,8 @@ export function Logo({ size = 'medium', variant = 'full', className = '' }: Logo
   if (variant === 'icon') {
     return (
       <div className={`relative ${className}`}>
-        <Shield className={`${iconSizeClasses[size]} text-primary-600`} />
-        <Waves className={`absolute inset-0 ${iconSizeClasses[size]} text-primary-400 opacity-50 animate-pulse`} />
+        <Shield className={`${iconSizeClasses[size]} text-gold-primary`} />
+        <Waves className={`absolute inset-0 ${iconSizeClasses[size]} text-gold-light opacity-50 animate-pulse`} />
       </div>
     )
   }
@@ -31,15 +31,15 @@ export function Logo({ size = 'medium', variant = 'full', className = '' }: Logo
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <div className="relative">
-        <Shield className={`${iconSizeClasses[size]} text-primary-600`} />
-        <Waves className={`absolute inset-0 ${iconSizeClasses[size]} text-primary-400 opacity-50 animate-pulse`} />
+        <Shield className={`${iconSizeClasses[size]} text-gold-primary drop-shadow-lg`} />
+        <Waves className={`absolute inset-0 ${iconSizeClasses[size]} text-gold-light opacity-50 animate-pulse`} />
       </div>
       <div className="flex flex-col">
-        <h1 className={`font-bold text-gradient ${sizeClasses[size]} leading-none`}>
+        <h1 className={`font-bold text-gradient ${sizeClasses[size]} leading-none drop-shadow-lg`}>
           ChatWave
         </h1>
         {size !== 'small' && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+          <p className="text-xs text-gold-primary/80 font-semibold tracking-wide">
             Ephemeral Secure Chat
           </p>
         )}

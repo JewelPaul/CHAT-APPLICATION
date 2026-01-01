@@ -96,16 +96,16 @@ export function Sidebar({
             </div>
           </div>
 
-          {/* Device Key Section - Subtle Card */}
+          {/* Device Key Section - Royal Gold Card */}
           <div className="px-4 pb-4">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                <Key className="w-3.5 h-3.5" />
-                <span className="text-[var(--text-xs)] font-medium uppercase tracking-wide">Your Key</span>
+              <div className="flex items-center gap-2 text-gold-primary">
+                <Key className="w-4 h-4" />
+                <span className="text-[var(--text-xs)] font-semibold uppercase tracking-wide">Your Key</span>
               </div>
-              <div className="flex items-center gap-2 p-3 bg-[var(--bg-tertiary)] rounded-xl border border-[var(--border-light)]">
+              <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-bg-card to-bg-hover rounded-xl border-2 border-gold-primary/20 hover:border-gold-primary/40 transition-all">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[var(--text-primary)] font-mono text-[var(--text-sm)] truncate">{deviceKey}</p>
+                  <p className="text-white font-mono text-[var(--text-sm)] font-medium truncate">{deviceKey}</p>
                 </div>
                 <button
                   onClick={async () => {
@@ -117,15 +117,15 @@ export function Sidebar({
                       console.error('Failed to copy key:', error);
                     }
                   }}
-                  className="flex items-center justify-center w-8 h-8 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg transition-all active:scale-95"
+                  className="flex items-center justify-center w-9 h-9 bg-gold-primary hover:bg-gold-light text-black rounded-lg transition-all active:scale-95 shadow-glow"
                   title="Copy key"
                 >
-                  {keyCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {keyCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
               <div className="flex items-center gap-2 px-1">
-                <div className="w-2 h-2 bg-[var(--success)] rounded-full" />
-                <span className="text-[var(--text-xs)] text-[var(--text-secondary)]">Online</span>
+                <div className="w-2 h-2 bg-online rounded-full animate-pulse" />
+                <span className="text-[var(--text-xs)] text-gold-primary font-medium">Online</span>
               </div>
             </div>
           </div>
