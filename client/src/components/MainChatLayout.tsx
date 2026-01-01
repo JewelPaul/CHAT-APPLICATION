@@ -330,8 +330,85 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
     addNotification('info', `${type === 'audio' ? 'Voice' : 'Video'} call feature coming soon`)
   }
 
+  const handleFileSelect = async (file: File) => {
+    if (!selectedContact || !currentRoomId) {
+      addNotification('error', 'No active chat session')
+      return
+    }
+
+    // Check file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      addNotification('error', 'File size must be less than 10MB')
+      return
+    }
+
+    try {
+      // Convert file to base64
+      const reader = new FileReader()
+      reader.onload = async () => {
+        const base64Data = reader.result as string
+        const base64Content = base64Data.split(',')[1]
+
+        // Save media message to IndexedDB
+        const db = await getDatabase()
+        const msgId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+        const newMessage: StoredMessage = {
+          id: msgId,
+          chatId: selectedContact.id,
+          senderId: deviceKey,
+          recipientId: selectedContact.id,
+          content: file.name,
+          type: 'media',
+          timestamp: new Date(),
+          status: 'sending',
+          mediaData: base64Content,
+          mimeType: file.type,
+          filename: file.name,
+          size: file.size
+        }
+
+        await db.saveMessage(newMessage)
+        setMessages(prev => [...prev, newMessage])
+
+        // Update contact's last message
+        await db.updateContact(selectedContact.id, {
+          lastMessage: `Sent ${file.type.startsWith('image/') ? 'an image' : 'a file'}`,
+          lastMessageTime: new Date()
+        })
+
+        // Send via socket
+        socketService.emit('media-message', {
+          roomId: currentRoomId,
+          filename: file.name,
+          mimeType: file.type,
+          size: file.size,
+          data: base64Content
+        })
+
+        addNotification('success', 'File sent successfully')
+
+        // Update message status
+        setTimeout(async () => {
+          await db.updateMessageStatus(newMessage.id, 'sent')
+          setMessages(prev =>
+            prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m)
+          )
+        }, 300)
+      }
+
+      reader.onerror = () => {
+        addNotification('error', 'Failed to read file')
+      }
+
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error('Failed to send file:', error)
+      addNotification('error', 'Failed to send file')
+    }
+  }
+
   return (
-    <div className="flex h-screen bg-[#0a0a0f]">
+    <div className="flex h-screen bg-[var(--bg-primary)]">
       {/* Sidebar */}
       <Sidebar
         deviceKey={deviceKey}
@@ -351,6 +428,7 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
         onTypingStart={handleTypingStart}
         onTypingStop={handleTypingStop}
         onInitiateCall={handleInitiateCall}
+        onFileSelect={handleFileSelect}
       />
 
       {/* Add User Modal */}
