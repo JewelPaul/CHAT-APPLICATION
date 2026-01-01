@@ -1,5 +1,5 @@
 import { useRef, ChangeEvent } from 'react'
-import { Paperclip } from 'lucide-react'
+import { Paperclip, Image } from 'lucide-react'
 
 interface MediaPickerProps {
   onFileSelect: (file: File) => void

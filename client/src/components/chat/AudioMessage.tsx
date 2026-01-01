@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { Play, Pause } from 'lucide-react'
 
 interface AudioMessageProps {
@@ -7,11 +7,34 @@ interface AudioMessageProps {
   duration?: number
 }
 
+const WAVEFORM_BARS = 20
+const WAVEFORM_SEED_MULTIPLIER = 0.5
+const WAVEFORM_HASH_SCALE = 10000
+const WAVEFORM_HEIGHT_MIN = 40
+const WAVEFORM_HEIGHT_RANGE = 60
+
 export function AudioMessage({ src, filename, duration }: AudioMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [audioDuration, setAudioDuration] = useState(duration || 0)
   const audioRef = useRef<HTMLAudioElement>(null)
+
+  // Generate deterministic waveform heights based on filename
+  // This prevents flickering by ensuring the same heights are generated on each render
+  const waveformHeights = useMemo(() => {
+    const seed = filename || src
+    let hash = 0
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i)
+      hash = hash & hash
+    }
+    
+    return Array.from({ length: WAVEFORM_BARS }).map((_, i) => {
+      const x = Math.sin(hash + i * WAVEFORM_SEED_MULTIPLIER) * WAVEFORM_HASH_SCALE
+      const normalized = (x - Math.floor(x))
+      return normalized * WAVEFORM_HEIGHT_RANGE + WAVEFORM_HEIGHT_MIN
+    })
+  }, [filename, src])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -77,11 +100,10 @@ export function AudioMessage({ src, filename, duration }: AudioMessageProps) {
 
       <div className="flex-1">
         <div className="relative h-8 flex items-center">
-          {/* Waveform visualization (simplified) */}
+          {/* Waveform visualization (deterministic) */}
           <div className="flex items-center gap-0.5 h-full">
-            {Array.from({ length: 20 }).map((_, i) => {
-              const height = Math.random() * 60 + 40
-              const isPast = (i / 20) * 100 < progress
+            {waveformHeights.map((height, i) => {
+              const isPast = (i / WAVEFORM_BARS) * 100 < progress
               return (
                 <div
                   key={i}

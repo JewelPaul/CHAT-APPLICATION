@@ -9,6 +9,10 @@ import { useNotifications } from './NotificationProvider'
 import type { Contact, StoredMessage } from '../db'
 import type { CallType } from '../types'
 
+// Configuration constants
+const MAX_FILE_SIZE_MB = 10
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
 interface MainChatLayoutProps {
   deviceKey: string
 }
@@ -336,9 +340,9 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
       return
     }
 
-    // Check file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      addNotification('error', 'File size must be less than 10MB')
+    // Check file size limit
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      addNotification('error', `File size must be less than ${MAX_FILE_SIZE_MB}MB`)
       return
     }
 
