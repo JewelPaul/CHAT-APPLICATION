@@ -4,25 +4,49 @@
 
 @layer base {
   :root {
-    /* Apple-Inspired Color Palette */
-    --bg-primary: #000000;
-    --bg-secondary: #1c1c1e;
-    --bg-tertiary: #2c2c2e;
+    /* Backgrounds - Deep, Rich Black */
+    --bg-dark: #0d0d0d;
+    --bg-surface: #1a1a1a;
+    --bg-card: #242424;
+    --bg-hover: #2a2a2a;
     
+    /* Legacy aliases for compatibility */
+    --bg-primary: #0d0d0d;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #242424;
+    
+    /* Royal Gold Accent (Rich, Elegant) */
+    --gold-primary: #D4AF37;
+    --gold-light: #F4D03F;
+    --gold-dark: #B8860B;
+    --gold-subtle: rgba(212, 175, 55, 0.1);
+    --gold-glow: rgba(212, 175, 55, 0.3);
+    
+    /* Text */
     --text-primary: #ffffff;
-    --text-secondary: #8e8e93;
-    --text-tertiary: #636366;
+    --text-secondary: #a0a0a0;
+    --text-muted: #666666;
+    --text-tertiary: #666666;
     
-    --accent: #0a84ff;
-    --accent-hover: #409cff;
+    /* Accent - Gold Primary */
+    --accent: #D4AF37;
+    --accent-hover: #F4D03F;
     
-    --success: #30d158;
-    --destructive: #ff453a;
+    /* Semantic Colors */
+    --success: #4ade80;
+    --destructive: #f87171;
+    --error: #f87171;
+    --online: #4ade80;
     
-    --border: rgba(255, 255, 255, 0.1);
+    /* Borders */
+    --border: rgba(212, 175, 55, 0.15);
     --border-light: rgba(255, 255, 255, 0.05);
     
-    /* Typography - SF Pro Style */
+    /* Gradients */
+    --gradient-gold: linear-gradient(135deg, #D4AF37 0%, #F4D03F 50%, #B8860B 100%);
+    --gradient-dark: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+    
+    /* Typography */
     --text-xs: 11px;
     --text-sm: 13px;
     --text-base: 15px;
@@ -54,7 +78,7 @@
 }
 
 @layer components {
-  /* Apple-Style Buttons */
+  /* Royal Gold Buttons */
   .btn {
     display: inline-flex;
     align-items: center;
@@ -63,7 +87,7 @@
     padding: 10px 16px;
     font-size: var(--text-base);
     font-weight: var(--font-medium);
-    border-radius: 10px;
+    border-radius: 12px;
     transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     cursor: pointer;
     border: none;
@@ -75,21 +99,26 @@
   }
   
   .btn-primary {
-    background-color: var(--accent);
-    color: white;
+    background: var(--gradient-gold);
+    color: #000000;
+    font-weight: var(--font-semibold);
+    box-shadow: 0 0 20px var(--gold-glow);
   }
   
   .btn-primary:hover {
-    background-color: var(--accent-hover);
+    box-shadow: 0 0 30px var(--gold-glow);
+    transform: translateY(-1px);
   }
   
   .btn-secondary {
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-card);
     color: var(--text-primary);
+    border: 1px solid var(--border);
   }
   
   .btn-secondary:hover {
-    background-color: #3c3c3e;
+    background-color: var(--bg-hover);
+    border-color: var(--gold-primary);
   }
   
   .btn-danger {
@@ -107,60 +136,65 @@
     transform: none;
   }
   
-  /* Apple-Style Input */
+  /* Input Fields */
   .input-field {
     width: 100%;
-    background-color: var(--bg-tertiary);
-    border: none;
-    border-radius: 20px;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
     padding: 10px 16px;
     color: var(--text-primary);
     font-size: var(--text-base);
     outline: none;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
   }
   
   .input-field::placeholder {
-    color: var(--text-tertiary);
+    color: var(--text-muted);
   }
   
   .input-field:focus {
-    background-color: #3c3c3e;
+    background-color: var(--bg-hover);
+    border-color: var(--gold-primary);
+    box-shadow: 0 0 0 3px var(--gold-subtle);
   }
   
-  /* Message Bubbles - Apple Style */
+  /* Message Bubbles - WhatsApp Style */
   .bubble-sent {
-    background: var(--accent);
-    color: white;
+    background: var(--gradient-gold);
+    color: #000000;
     border-radius: 18px;
     border-bottom-right-radius: 4px;
     padding: 10px 14px;
     max-width: 70%;
     font-size: var(--text-base);
+    font-weight: var(--font-medium);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
   
   .bubble-received {
-    background: var(--bg-tertiary);
-    color: white;
+    background: var(--bg-card);
+    color: var(--text-primary);
     border-radius: 18px;
     border-bottom-left-radius: 4px;
     padding: 10px 14px;
     max-width: 70%;
     font-size: var(--text-base);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
   
   /* Cards */
   .card {
-    background-color: var(--bg-secondary);
-    border-radius: 12px;
-    border: 1px solid var(--border-light);
+    background-color: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border);
   }
   
   /* Modal */
   .modal-overlay {
     position: fixed;
     inset: 0;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     z-index: 50;
@@ -171,9 +205,9 @@
   }
   
   .modal-content {
-    background-color: var(--bg-tertiary);
-    border-radius: 16px;
-    border: 1px solid var(--border);
+    background: var(--gradient-dark);
+    border-radius: 20px;
+    border: 2px solid var(--border);
     max-width: 28rem;
     width: 100%;
     max-height: 90vh;
@@ -183,7 +217,7 @@
   /* Navigation Bar */
   .nav-bar {
     height: 44px;
-    background: rgba(0, 0, 0, 0.8);
+    background: var(--bg-surface);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
@@ -200,11 +234,11 @@
   }
   
   .contact-row:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--bg-hover);
   }
   
   .contact-row:active {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(212, 175, 55, 0.05);
   }
   
   /* Avatar */
@@ -212,12 +246,13 @@
     width: 50px;
     height: 50px;
     border-radius: 25px;
-    background: linear-gradient(135deg, #5e5ce6, #bf5af2);
+    background: var(--gradient-gold);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #000000;
     font-weight: var(--font-semibold);
+    border: 2px solid var(--gold-dark);
   }
   
   /* Typing Indicator */
@@ -240,20 +275,24 @@
 
 @layer utilities {
   .text-gradient {
-    background: linear-gradient(135deg, var(--accent), #bf5af2);
+    background: var(--gradient-gold);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   
   .glass {
-    background-color: rgba(28, 28, 30, 0.8);
+    background: rgba(26, 26, 26, 0.8);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }
   
   .shadow-glow {
-    box-shadow: 0 0 20px rgba(10, 132, 255, 0.3);
+    box-shadow: 0 0 20px var(--gold-glow);
+  }
+  
+  .shadow-gold {
+    box-shadow: 0 0 30px var(--gold-glow);
   }
 }
 
