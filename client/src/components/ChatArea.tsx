@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { Send, Smile, Paperclip, Phone, Video, MoreVertical } from 'lucide-react'
+import { Send, Phone, Video, MoreVertical } from 'lucide-react'
 import { MessageComponent } from './Message'
 import { EmptyState } from './EmptyState'
+import { MediaPicker } from './chat/MediaPicker'
+import { Input } from './ui/Input'
+import { Avatar } from './ui/Avatar'
 import type { StoredMessage, Contact } from '../db'
 import type { CallType } from '../types'
 
@@ -14,6 +17,7 @@ interface ChatAreaProps {
   onTypingStart: () => void
   onTypingStop: () => void
   onInitiateCall?: (type: CallType) => void
+  onFileSelect?: (file: File) => void
 }
 
 export function ChatArea({
@@ -24,7 +28,8 @@ export function ChatArea({
   onSendMessage,
   onTypingStart,
   onTypingStop,
-  onInitiateCall
+  onInitiateCall,
+  onFileSelect
 }: ChatAreaProps) {
   const [messageInput, setMessageInput] = useState('')
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null)
@@ -76,37 +81,33 @@ export function ChatArea({
   // No contact selected
   if (!contact) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#0a0a0f]">
+      <div className="flex-1 flex items-center justify-center bg-[var(--bg-primary)]">
         <EmptyState type="no-chat" />
       </div>
     )
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0a0a0f] h-screen">
-      {/* Chat Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-[#12121a] border-b border-gray-800">
+    <div className="flex-1 flex flex-col bg-[var(--bg-primary)] h-screen">
+      {/* Chat Header - Clean Navigation Bar */}
+      <div className="nav-bar flex items-center justify-between px-6 py-2">
         <div className="flex items-center gap-3">
           {/* Avatar */}
-          {contact.avatar ? (
-            <img
-              src={contact.avatar}
-              alt={contact.displayName}
-              className="w-10 h-10 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-semibold">
-              {contact.displayName[0]?.toUpperCase() || '?'}
-            </div>
-          )}
+          <Avatar 
+            name={contact.displayName}
+            src={contact.avatar}
+            size="sm"
+          />
 
           {/* Contact Info */}
           <div>
-            <h2 className="font-semibold text-white">{contact.displayName}</h2>
-            <p className="text-xs text-gray-400">
+            <h2 className="font-semibold text-[var(--text-primary)] text-[var(--text-base)]">
+              {contact.displayName}
+            </h2>
+            <p className="text-[var(--text-xs)] text-[var(--text-secondary)]">
               {contact.status === 'accepted' ? (
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  <span className="w-1.5 h-1.5 bg-[var(--success)] rounded-full"></span>
                   Online
                 </span>
               ) : (
@@ -117,41 +118,43 @@ export function ChatArea({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {onInitiateCall && (
             <>
               <button
                 onClick={() => onInitiateCall('audio')}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                className="p-2.5 hover:bg-[rgba(255,255,255,0.1)] rounded-lg transition-colors"
                 title="Voice Call"
               >
-                <Phone className="w-5 h-5 text-gray-400 hover:text-white" />
+                <Phone className="w-5 h-5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]" />
               </button>
               <button
                 onClick={() => onInitiateCall('video')}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                className="p-2.5 hover:bg-[rgba(255,255,255,0.1)] rounded-lg transition-colors"
                 title="Video Call"
               >
-                <Video className="w-5 h-5 text-gray-400 hover:text-white" />
+                <Video className="w-5 h-5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]" />
               </button>
             </>
           )}
           <button
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2.5 hover:bg-[rgba(255,255,255,0.1)] rounded-lg transition-colors"
             title="More options"
           >
-            <MoreVertical className="w-5 h-5 text-gray-400 hover:text-white" />
+            <MoreVertical className="w-5 h-5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]" />
           </button>
         </div>
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-2">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center text-gray-500">
-              <p className="text-lg">No messages yet</p>
-              <p className="text-sm">Send a message to start the conversation</p>
+            <div className="text-center">
+              <p className="text-[var(--text-lg)] text-[var(--text-secondary)]">No messages yet</p>
+              <p className="text-[var(--text-sm)] text-[var(--text-tertiary)] mt-1">
+                Send a message to start the conversation
+              </p>
             </div>
           </div>
         ) : (
@@ -171,13 +174,12 @@ export function ChatArea({
               />
             ))}
             {isTyping && (
-              <div className="flex items-center gap-2 text-gray-400 text-sm">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              <div className="flex items-start mb-3">
+                <div className="bubble-received flex items-center gap-2 py-3">
+                  <div className="typing-dot" />
+                  <div className="typing-dot" />
+                  <div className="typing-dot" />
                 </div>
-                <span>{contact.displayName} is typing...</span>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -185,44 +187,38 @@ export function ChatArea({
         )}
       </div>
 
-      {/* Message Input Area */}
-      <div className="p-4 bg-[#12121a] border-t border-gray-800">
+      {/* Message Input Area - Clean Input Bar */}
+      <div className="p-4 bg-[var(--bg-secondary)] border-t border-[var(--border)]">
         <div className="flex items-center gap-2">
-          {/* Emoji Picker Button */}
-          <button
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-            title="Emoji"
-          >
-            <Smile className="w-5 h-5 text-gray-400 hover:text-white" />
-          </button>
-
-          {/* Attachment Button */}
-          <button
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-            title="Attach file"
-          >
-            <Paperclip className="w-5 h-5 text-gray-400 hover:text-white" />
-          </button>
+          {/* Media Picker */}
+          {onFileSelect && (
+            <MediaPicker 
+              onFileSelect={onFileSelect}
+              disabled={!contact}
+            />
+          )}
 
           {/* Message Input */}
-          <input
-            type="text"
-            value={messageInput}
-            onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
-            placeholder="Type a message..."
-            className="flex-1 px-4 py-2 bg-[#1e1e2e] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-
-          {/* Send Button */}
-          <button
-            onClick={handleSendMessage}
-            disabled={!messageInput.trim()}
-            className="p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg transition-colors"
-            title="Send message"
-          >
-            <Send className="w-5 h-5 text-white" />
-          </button>
+          <div className="flex-1 relative">
+            <Input
+              type="text"
+              value={messageInput}
+              onChange={handleInputChange}
+              onKeyPress={handleKeyPress}
+              placeholder="Message..."
+              className="w-full pr-12"
+            />
+            
+            {/* Send Button - Integrated */}
+            <button
+              onClick={handleSendMessage}
+              disabled={!messageInput.trim()}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:bg-[var(--bg-tertiary)] disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-all active:scale-95"
+              title="Send message"
+            >
+              <Send className="w-4 h-4 text-white" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
