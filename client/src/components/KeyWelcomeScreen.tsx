@@ -27,99 +27,102 @@ export function KeyWelcomeScreen({ deviceKey, onContinue }: KeyWelcomeScreenProp
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-bg-dark via-bg-surface to-black p-4">
       <div className="max-w-2xl w-full">
         {/* Logo and Title */}
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <Logo size="large" className="text-white" />
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gold-primary/30 blur-3xl rounded-full animate-pulse" />
+              <Logo size="large" className="relative" />
+            </div>
           </div>
-          <h1 className="text-5xl font-bold text-white mb-2">Welcome to ChatWave</h1>
-          <p className="text-white/90 text-xl">
-            Your unique key has been generated
+          <h1 className="text-5xl font-bold text-white mb-3">Welcome to ChatWave</h1>
+          <p className="text-gold-primary text-xl font-medium">
+            ✨ Your unique key has been generated
           </p>
         </div>
 
-        {/* Main Card */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl mb-6">
+        {/* Main Card - Royal Gold */}
+        <div className="bg-gradient-dark backdrop-blur-lg rounded-3xl p-8 shadow-2xl border-2 border-gold-primary/30 mb-6">
           {/* Key Icon */}
           <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center">
-              <Key className="w-10 h-10 text-white" />
+            <div className="w-20 h-20 rounded-full bg-gradient-gold flex items-center justify-center shadow-gold">
+              <Key className="w-10 h-10 text-black" />
             </div>
           </div>
 
           {/* Device Key Display */}
           <div className="mb-8">
-            <label className="block text-center text-white/90 text-sm font-medium mb-4">
+            <label className="block text-center text-gold-primary text-sm font-semibold mb-4 uppercase tracking-wide">
               Your unique ChatWave key:
             </label>
             <div className="flex items-center gap-3">
-              <div className="flex-1 bg-white/20 border-2 border-white/30 rounded-2xl px-6 py-5 backdrop-blur-sm">
+              <div className="flex-1 bg-bg-card border-2 border-gold-primary/30 rounded-2xl px-6 py-5 backdrop-blur-sm hover:border-gold-primary/50 transition-all">
                 <p className="text-white font-mono text-2xl md:text-3xl font-bold text-center tracking-wider">
                   {deviceKey}
                 </p>
               </div>
               <button
                 onClick={handleCopy}
-                className="flex items-center justify-center w-14 h-14 rounded-xl bg-white/20 hover:bg-white/30 border border-white/30 text-white transition-all duration-200 hover:scale-105 active:scale-95"
+                className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-gold hover:bg-gold-light border-2 border-gold-dark text-black transition-all duration-200 hover:scale-105 active:scale-95 shadow-gold"
                 title="Copy to clipboard"
               >
                 {copied ? (
-                  <Check className="w-6 h-6" />
+                  <Check className="w-7 h-7" />
                 ) : (
-                  <Copy className="w-6 h-6" />
+                  <Copy className="w-7 h-7" />
                 )}
               </button>
             </div>
           </div>
 
-          {/* Instructions */}
+          {/* Instructions - Royal Gold */}
           <div className="space-y-4 mb-8">
-            <div className="bg-white/10 rounded-xl p-4 border border-white/20">
+            <div className="bg-bg-card/50 rounded-xl p-4 border-2 border-gold-primary/20 hover:border-gold-primary/40 transition-all">
               <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
                 <span className="text-2xl">📱</span>
                 Share Your Key
               </h3>
-              <p className="text-white/80 text-sm">
+              <p className="text-text-secondary text-sm">
                 Share this key with friends so they can message you. They'll enter your key to start a conversation.
               </p>
             </div>
 
-            <div className="bg-white/10 rounded-xl p-4 border border-white/20">
+            <div className="bg-bg-card/50 rounded-xl p-4 border-2 border-gold-primary/20 hover:border-gold-primary/40 transition-all">
               <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
                 <span className="text-2xl">⚠️</span>
                 Keep It Safe
               </h3>
-              <p className="text-white/80 text-sm">
+              <p className="text-text-secondary text-sm">
                 This key is permanent for this device. Save it somewhere safe! You can always find it in the app.
               </p>
             </div>
 
-            <div className="bg-white/10 rounded-xl p-4 border border-white/20">
+            <div className="bg-bg-card/50 rounded-xl p-4 border-2 border-gold-primary/20 hover:border-gold-primary/40 transition-all">
               <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
                 <span className="text-2xl">🔐</span>
                 No Password Required
               </h3>
-              <p className="text-white/80 text-sm">
+              <p className="text-text-secondary text-sm">
                 No signup, no login, no password. Just your unique key that stays with this device forever.
               </p>
             </div>
           </div>
 
-          {/* Continue Button */}
+          {/* Continue Button - Royal Gold */}
           <button
             onClick={onContinue}
-            className="w-full py-4 px-6 rounded-xl bg-white text-indigo-600 font-bold text-lg hover:bg-white/90 focus:outline-none focus:ring-4 focus:ring-white/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+            className="btn btn-primary w-full py-5 text-lg font-bold shadow-gold hover:shadow-2xl"
           >
-            Continue to Chat
+            Continue to Chat ✨
           </button>
         </div>
 
         {/* Privacy Note */}
         <div className="text-center">
-          <p className="text-white/80 text-sm">
-            🔒 Your messages are encrypted and stored locally on your device.
+          <p className="text-gold-primary/80 text-sm font-medium">
+            🔒 Your messages are encrypted and ephemeral - stored only in memory
           </p>
         </div>
       </div>
