@@ -1,5 +1,3 @@
-import { Play } from 'lucide-react'
-
 interface VideoMessageProps {
   src: string
   filename?: string

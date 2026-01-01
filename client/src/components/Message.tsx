@@ -1,6 +1,5 @@
-import { Download, FileText, Image, Video, Music, File, X, ZoomIn } from 'lucide-react'
-import { useState, useEffect } from 'react'
-import { formatFileSize, formatTimeAgo } from '../utils'
+import { Download } from 'lucide-react'
+import { formatTimeAgo } from '../utils'
 import { MessageBubble } from './chat/MessageBubble'
 import { ImageMessage } from './chat/ImageMessage'
 import { VideoMessage } from './chat/VideoMessage'

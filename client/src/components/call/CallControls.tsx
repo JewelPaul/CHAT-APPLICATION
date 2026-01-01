@@ -1,4 +1,4 @@
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, Minimize2 } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff } from 'lucide-react'
 
 interface CallControlsProps {
   isMuted: boolean

@@ -25,7 +25,6 @@ export function ActiveCall({
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const [callDuration, setCallDuration] = useState(0)
-  const [isPiPDragging, setIsPiPDragging] = useState(false)
 
   // Setup video streams
   useEffect(() => {
