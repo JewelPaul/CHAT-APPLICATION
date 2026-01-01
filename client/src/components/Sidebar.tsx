@@ -58,31 +58,54 @@ export function Sidebar({
 
   return (
     <div
-      className={`flex flex-col h-full bg-[#12121a] border-r border-gray-800 transition-all duration-300 ${
-        isCollapsed ? 'w-16' : 'w-80'
+      className={`flex flex-col h-full bg-[var(--bg-secondary)] border-r border-[var(--border)] transition-all duration-300 ${
+        isCollapsed ? 'w-16' : 'w-80 lg:w-96'
       }`}
     >
+      {/* Header - Large Title */}
+      {!isCollapsed && (
+        <div className="p-6 pb-4">
+          <h1 className="text-[var(--text-2xl)] font-semibold text-[var(--text-primary)]" style={{ letterSpacing: '-0.02em' }}>
+            Chats
+          </h1>
+        </div>
+      )}
+
       {/* Collapse Button (Mobile) */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="lg:hidden p-4 hover:bg-gray-700/50 transition-colors"
+        className="lg:hidden p-4 hover:bg-[rgba(255,255,255,0.05)] transition-colors"
         aria-label="Toggle sidebar"
       >
-        <Menu className="w-5 h-5 text-gray-400" />
+        <Menu className="w-5 h-5 text-[var(--text-secondary)]" />
       </button>
 
       {!isCollapsed && (
         <>
-          {/* Device Key Section */}
-          <div className="p-4 border-b border-gray-800">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-gray-400">
-                <Key className="w-4 h-4" />
-                <span className="text-xs font-medium">Your Key</span>
+          {/* Search Bar - Pill Shaped */}
+          <div className="px-4 pb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search"
+                className="input-field w-full pl-9 pr-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Device Key Section - Subtle Card */}
+          <div className="px-4 pb-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                <Key className="w-3.5 h-3.5" />
+                <span className="text-[var(--text-xs)] font-medium uppercase tracking-wide">Your Key</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-[#1e1e2e] border border-gray-700 rounded-lg px-3 py-2">
-                  <p className="text-white font-mono text-sm truncate">{deviceKey}</p>
+              <div className="flex items-center gap-2 p-3 bg-[var(--bg-tertiary)] rounded-xl border border-[var(--border-light)]">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[var(--text-primary)] font-mono text-[var(--text-sm)] truncate">{deviceKey}</p>
                 </div>
                 <button
                   onClick={async () => {
@@ -94,48 +117,30 @@ export function Sidebar({
                       console.error('Failed to copy key:', error);
                     }
                   }}
-                  className="flex items-center justify-center w-9 h-9 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                  className="flex items-center justify-center w-8 h-8 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg transition-all active:scale-95"
                   title="Copy key"
                 >
-                  {keyCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {keyCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full" />
-                <span className="text-xs text-gray-400">Online</span>
+              <div className="flex items-center gap-2 px-1">
+                <div className="w-2 h-2 bg-[var(--success)] rounded-full" />
+                <span className="text-[var(--text-xs)] text-[var(--text-secondary)]">Online</span>
               </div>
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="p-3 border-b border-gray-800">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search conversations..."
-                className="w-full pl-9 pr-3 py-2 bg-[#1e1e2e] border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
-
-          {/* New Chat Button */}
-          <div className="p-3 border-b border-gray-800">
-            <button
-              onClick={onNewChat}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Chat</span>
-            </button>
+          {/* Section Header */}
+          <div className="px-4 pb-2">
+            <h2 className="text-[var(--text-xs)] font-medium uppercase tracking-wide text-[var(--text-secondary)]">
+              Messages
+            </h2>
           </div>
 
           {/* Contacts List */}
           <div className="flex-1 overflow-y-auto">
             {filteredContacts.length > 0 ? (
-              <div className="divide-y divide-gray-800">
+              <div>
                 {filteredContacts.map((contact) => (
                   <ContactItem
                     key={contact.id}
@@ -153,28 +158,27 @@ export function Sidebar({
                 ))}
               </div>
             ) : (
-              <div className="h-full">
+              <div className="h-full flex items-center justify-center p-6">
                 <EmptyState
                   type={searchQuery ? 'no-search-results' : 'no-contacts'}
                   message={
                     searchQuery
                       ? `No contacts found for "${searchQuery}"`
-                      : 'Click "New Chat" to start a conversation'
+                      : 'No conversations yet'
                   }
                 />
               </div>
             )}
           </div>
 
-          {/* Bottom Actions */}
-          <div className="p-3 border-t border-gray-800">
+          {/* New Chat Button - Floating at Bottom */}
+          <div className="p-4 border-t border-[var(--border)]">
             <button
-              onClick={onSettings}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
-              title="Settings"
+              onClick={onNewChat}
+              className="btn btn-primary w-full"
             >
-              <Settings className="w-4 h-4" />
-              <span className="text-sm">Settings</span>
+              <Plus className="w-4 h-4" />
+              <span>New Chat</span>
             </button>
           </div>
         </>
@@ -185,17 +189,17 @@ export function Sidebar({
           {/* Collapsed state - show icons only */}
           <button
             onClick={onNewChat}
-            className="p-3 hover:bg-gray-700/50 rounded-lg transition-colors"
+            className="p-3 hover:bg-[rgba(255,255,255,0.05)] rounded-lg transition-colors"
             title="New Chat"
           >
-            <Plus className="w-5 h-5 text-gray-400" />
+            <Plus className="w-5 h-5 text-[var(--text-secondary)]" />
           </button>
           <button
             onClick={onSettings}
-            className="p-3 hover:bg-gray-700/50 rounded-lg transition-colors"
+            className="p-3 hover:bg-[rgba(255,255,255,0.05)] rounded-lg transition-colors"
             title="Settings"
           >
-            <Settings className="w-5 h-5 text-gray-400" />
+            <Settings className="w-5 h-5 text-[var(--text-secondary)]" />
           </button>
         </div>
       )}

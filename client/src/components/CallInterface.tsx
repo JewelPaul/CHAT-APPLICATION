@@ -1,13 +1,4 @@
-import { useEffect, useRef } from 'react'
-import { 
-  PhoneOff, 
-  Mic, 
-  MicOff, 
-  Video, 
-  VideoOff,
-  User as UserIcon,
-  PhoneIncoming
-} from 'lucide-react'
+import { ActiveCall } from './call/ActiveCall'
 import type { CallState, User } from '../types'
 
 interface CallInterfaceProps {
@@ -29,54 +20,19 @@ export function CallInterface({
   onToggleMute,
   onToggleVideo
 }: CallInterfaceProps) {
-  const localVideoRef = useRef<HTMLVideoElement>(null)
-  const remoteVideoRef = useRef<HTMLVideoElement>(null)
-  const remoteAudioRef = useRef<HTMLAudioElement>(null)
-
-  // Set up local video stream
-  useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream
-    }
-  }, [localStream])
-
-  // Set up remote stream
-  useEffect(() => {
-    if (remoteStream) {
-      if (callState.type === 'video' && remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remoteStream
-      } else if (callState.type === 'audio' && remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = remoteStream
-      }
-    }
-  }, [remoteStream, callState.type])
-
-  const renderCallStatus = () => {
-    if (callState.status === 'calling') {
-      return (
-        <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="animate-pulse">
-            <PhoneIncoming className="w-16 h-16 text-primary-500" />
-          </div>
-          <p className="text-lg text-gray-900 dark:text-gray-100">
-            Calling {remoteUser.deviceName}...
-          </p>
-        </div>
-      )
-    }
-
-    if (callState.status === 'active') {
-      return null // Show video/audio UI
-    }
-
-    return null
-  }
-
   return (
-    <div className="fixed inset-0 z-50 bg-gray-900">
-      {/* Remote Video/Audio */}
-      <div className="relative w-full h-full flex items-center justify-center bg-gray-800">
-        {callState.type === 'video' ? (
+    <ActiveCall
+      callState={callState}
+      localStream={localStream}
+      remoteStream={remoteStream}
+      remoteUser={remoteUser}
+      onEndCall={onEndCall}
+      onToggleMute={onToggleMute}
+      onToggleVideo={onToggleVideo}
+    />
+  )
+}
+
           <>
             <video
               ref={remoteVideoRef}
