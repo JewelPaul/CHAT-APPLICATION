@@ -18,21 +18,21 @@ export function CallControls({
   callType
 }: CallControlsProps) {
   return (
-    <div className="flex items-center justify-center gap-4 p-6 bg-[var(--bg-secondary)] bg-opacity-80 backdrop-blur-xl rounded-2xl">
-      {/* Mute Button */}
+    <div className="flex items-center justify-center gap-6">
+      {/* Mute Button - Royal Gold accent */}
       <button
         onClick={onToggleMute}
-        className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+        className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${
           isMuted
-            ? 'bg-[var(--destructive)] hover:bg-[#ff5c52]'
-            : 'bg-[var(--bg-tertiary)] hover:bg-[#3c3c3e]'
+            ? 'bg-white text-black'
+            : 'bg-bg-card hover:bg-bg-hover text-white border-2 border-gold-primary/30'
         }`}
         title={isMuted ? 'Unmute' : 'Mute'}
       >
         {isMuted ? (
-          <MicOff className="w-6 h-6 text-white" />
+          <MicOff className="w-6 h-6" />
         ) : (
-          <Mic className="w-6 h-6 text-white" />
+          <Mic className="w-6 h-6" />
         )}
       </button>
 
@@ -40,25 +40,25 @@ export function CallControls({
       {callType === 'video' && (
         <button
           onClick={onToggleVideo}
-          className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${
             !isVideoEnabled
-              ? 'bg-[var(--destructive)] hover:bg-[#ff5c52]'
-              : 'bg-[var(--bg-tertiary)] hover:bg-[#3c3c3e]'
+              ? 'bg-white text-black'
+              : 'bg-bg-card hover:bg-bg-hover text-white border-2 border-gold-primary/30'
           }`}
           title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
         >
           {isVideoEnabled ? (
-            <Video className="w-6 h-6 text-white" />
+            <Video className="w-6 h-6" />
           ) : (
-            <VideoOff className="w-6 h-6 text-white" />
+            <VideoOff className="w-6 h-6" />
           )}
         </button>
       )}
 
-      {/* End Call Button */}
+      {/* End Call Button - Red with shadow */}
       <button
         onClick={onEndCall}
-        className="w-16 h-16 rounded-full bg-[var(--destructive)] hover:bg-[#ff5c52] flex items-center justify-center transition-all active:scale-95"
+        className="w-16 h-16 rounded-full bg-error hover:bg-error/90 flex items-center justify-center shadow-lg shadow-error/30 transition-all hover:scale-105 active:scale-95"
         title="End call"
       >
         <PhoneOff className="w-7 h-7 text-white" />

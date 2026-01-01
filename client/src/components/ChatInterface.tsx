@@ -178,23 +178,23 @@ export function ChatInterface({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Call Controls */}
+            {/* Call Controls - Royal Gold */}
             {onInitiateCall && (
               <>
                 <button
                   onClick={() => onInitiateCall('audio')}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  className="p-2.5 hover:bg-bg-hover rounded-lg transition-all border border-gold-primary/20 hover:border-gold-primary/50"
                   title="Audio call"
                 >
-                  <Phone className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <Phone className="w-5 h-5 text-gold-primary" />
                 </button>
                 
                 <button
                   onClick={() => onInitiateCall('video')}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  className="p-2.5 hover:bg-bg-hover rounded-lg transition-all border border-gold-primary/20 hover:border-gold-primary/50"
                   title="Video call"
                 >
-                  <Video className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <Video className="w-5 h-5 text-gold-primary" />
                 </button>
               </>
             )}
