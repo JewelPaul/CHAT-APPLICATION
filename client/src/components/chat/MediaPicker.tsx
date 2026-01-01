@@ -43,6 +43,14 @@ export function MediaPicker({ onFileSelect, disabled = false }: MediaPickerProps
           <div 
             className="fixed inset-0 z-10" 
             onClick={() => setIsOpen(false)}
+            role="button"
+            aria-label="Close media picker"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' || e.key === 'Enter') {
+                setIsOpen(false)
+              }
+            }}
           />
           
           {/* Media Options Panel */}

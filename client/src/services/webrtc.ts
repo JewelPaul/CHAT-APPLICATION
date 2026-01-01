@@ -23,18 +23,21 @@ class WebRTCService {
    */
   async startCall(
     isVideo: boolean, 
-    targetKey: string, 
-    roomId: string
+    targetKey: string
   ): Promise<MediaStream> {
-    console.log('[WebRTC] Starting call:', { isVideo, targetKey, roomId })
+    console.log('[WebRTC] Starting call:', { isVideo, targetKey })
     
     // Get local media
-    this.localStream = await navigator.mediaDevices.getUserMedia({
-      video: isVideo,
-      audio: true
-    })
-    
-    console.log('[WebRTC] Got local stream')
+    try {
+      this.localStream = await navigator.mediaDevices.getUserMedia({
+        video: isVideo,
+        audio: true
+      })
+      console.log('[WebRTC] Got local stream')
+    } catch (error) {
+      console.error('[WebRTC] Failed to get user media:', error)
+      throw new Error('Failed to access camera/microphone. Please check permissions.')
+    }
 
     // Create peer connection
     this.peerConnection = new RTCPeerConnection(this.config)
@@ -90,11 +93,16 @@ class WebRTCService {
     console.log('[WebRTC] Handling offer from:', targetKey)
     
     // Get local media
-    this.localStream = await navigator.mediaDevices.getUserMedia({
-      video: isVideo,
-      audio: true
-    })
-    console.log('[WebRTC] Got local stream')
+    try {
+      this.localStream = await navigator.mediaDevices.getUserMedia({
+        video: isVideo,
+        audio: true
+      })
+      console.log('[WebRTC] Got local stream')
+    } catch (error) {
+      console.error('[WebRTC] Failed to get user media:', error)
+      throw new Error('Failed to access camera/microphone. Please check permissions.')
+    }
 
     // Create peer connection
     this.peerConnection = new RTCPeerConnection(this.config)
@@ -206,8 +214,17 @@ class WebRTCService {
   /**
    * End call and cleanup
    */
-  endCall() {
+  endCall(targetKey?: string) {
     console.log('[WebRTC] Ending call and cleaning up')
+    
+    // Notify remote peer if targetKey provided
+    if (targetKey) {
+      try {
+        socketService.endCall(targetKey)
+      } catch (error) {
+        console.error('[WebRTC] Failed to notify remote peer:', error)
+      }
+    }
     
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => {
