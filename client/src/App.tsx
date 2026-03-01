@@ -2,6 +2,7 @@ import { ThemeProvider } from './components/ThemeProvider'
 import { NotificationProvider } from './components/NotificationProvider'
 import { ThemeToggle } from './components/ThemeToggle'
 import { IncomingCallModal } from './components/IncomingCallModal'
+import { IncomingRequestModal } from './components/IncomingRequestModal'
 import { CallInterface } from './components/CallInterface'
 import { MainChatLayout } from './components/MainChatLayout'
 import { WelcomeScreen } from './components/WelcomeScreen'
@@ -21,6 +22,8 @@ function ChatApp() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting')
   // activeSession: false = show landing screen, true = show chat layout
   const [activeSession, setActiveSession] = useState(false)
+
+  const [pendingRequest, setPendingRequest] = useState<{ fromKey: string; fromName: string } | null>(null)
 
   const [incomingCall, setIncomingCall] = useState<{
     from: User
@@ -62,6 +65,22 @@ function ChatApp() {
     }
   }, [])
 
+  // Incoming connection request — show modal, ignore while one is pending
+  useEffect(() => {
+    const handleIncomingRequest = (data: { fromKey: string; fromName: string }) => {
+      setPendingRequest(prev => prev ?? data)
+    }
+    const handleUserOffline = (data: { deviceKey: string }) => {
+      setPendingRequest(prev => prev?.fromKey === data.deviceKey ? null : prev)
+    }
+    socketService.on('incoming-request', handleIncomingRequest)
+    socketService.on('user-offline', handleUserOffline)
+    return () => {
+      socketService.off('incoming-request', handleIncomingRequest)
+      socketService.off('user-offline', handleUserOffline)
+    }
+  }, [])
+
   const handleInviteCodeChange = useCallback((newCode: string) => {
     saveInviteCode(newCode)
     setInviteCode(newCode)
@@ -71,6 +90,18 @@ function ChatApp() {
     socketService.sendRequest(code)
     addNotification('info', `Connection request sent to ${code}`)
   }, [addNotification])
+
+  const handleAcceptRequest = useCallback(() => {
+    if (!pendingRequest) return
+    socketService.acceptRequest(pendingRequest.fromKey)
+    setPendingRequest(null)
+  }, [pendingRequest])
+
+  const handleDeclineRequest = useCallback(() => {
+    if (!pendingRequest) return
+    socketService.rejectRequest(pendingRequest.fromKey)
+    setPendingRequest(null)
+  }, [pendingRequest])
 
   const dummyUser = useMemo(() => ({
     code: inviteCode,
@@ -218,6 +249,16 @@ function ChatApp() {
           callType={incomingCall.type}
           onAccept={handleAcceptCall}
           onReject={handleRejectCall}
+        />
+      )}
+
+      {/* Incoming Connection Request Modal */}
+      {pendingRequest && (
+        <IncomingRequestModal
+          fromKey={pendingRequest.fromKey}
+          fromName={pendingRequest.fromName}
+          onAccept={handleAcceptRequest}
+          onReject={handleDeclineRequest}
         />
       )}
     </div>

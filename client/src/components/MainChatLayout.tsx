@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Sidebar } from './Sidebar'
 import { ChatArea } from './ChatArea'
 import { AddUserModal } from './AddUserModal'
-import { IncomingRequestModal } from './IncomingRequestModal'
 import socketService from '../socket'
 import { useNotifications } from './NotificationProvider'
 import { generateKeyPair, encryptMessage, decryptMessage } from '../encryption'
@@ -39,7 +38,6 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
   const [contacts, setContacts] = useState<Contact[]>([])
   const [activeChats, setActiveChats] = useState<Map<string, ActiveChat>>(new Map())
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null)
-  const [incomingRequest, setIncomingRequest] = useState<{ fromKey: string; fromName: string } | null>(null)
   // Ref always holds latest keys — avoids stale closures in socket handlers
   const roomKeysRef = useRef<Map<string, RoomKeys>>(new Map())
   // Explicit partner key → room ID mapping
@@ -70,11 +68,6 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
 
   // Set up socket listeners — no roomKeys in dependency array (use ref instead)
   useEffect(() => {
-    const handleIncomingRequest = (data: { fromKey: string; fromName: string }) => {
-      setIncomingRequest(data)
-      addNotification('info', `Connection request from ${data.fromName}`)
-    }
-
     const handleConnectionEstablished = async (data: { partnerKey: string; partnerName: string; roomId: string }) => {
       const newContact: Contact = {
         id: data.partnerKey,
@@ -222,7 +215,6 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
       })
     }
 
-    socketService.on('incoming-request', handleIncomingRequest)
     socketService.on('connection-established', handleConnectionEstablished)
     socketService.on('key-exchange', handleKeyExchange)
     socketService.on('new-message', handleNewMessage)
@@ -233,7 +225,6 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
     socketService.on('user-offline', handleUserOffline)
 
     return () => {
-      socketService.off('incoming-request', handleIncomingRequest)
       socketService.off('connection-established', handleConnectionEstablished)
       socketService.off('key-exchange', handleKeyExchange)
       socketService.off('new-message', handleNewMessage)
@@ -267,20 +258,6 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
   const handleRequestSent = (targetKey: string) => {
     addNotification('info', `Connection request sent to ${targetKey}`)
     setTimeout(() => setIsAddUserModalOpen(false), 1500)
-  }
-
-  const handleAcceptRequest = () => {
-    if (incomingRequest) {
-      socketService.acceptRequest(incomingRequest.fromKey)
-      setIncomingRequest(null)
-    }
-  }
-
-  const handleRejectRequest = () => {
-    if (incomingRequest) {
-      socketService.rejectRequest(incomingRequest.fromKey)
-      setIncomingRequest(null)
-    }
   }
 
   const handleSendMessage = async (message: string) => {
@@ -446,16 +423,6 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
         existingContacts={contacts.map(c => c.id)}
         onRequestSent={handleRequestSent}
       />
-
-      {/* Incoming Request Modal */}
-      {incomingRequest && (
-        <IncomingRequestModal
-          fromKey={incomingRequest.fromKey}
-          fromName={incomingRequest.fromName}
-          onAccept={handleAcceptRequest}
-          onReject={handleRejectRequest}
-        />
-      )}
     </div>
   )
 }
