@@ -146,10 +146,8 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   return { valid: true }
 }
 
-// Theme management
+// Theme management — no localStorage, uses document class manipulation only
 export function setTheme(theme: 'light' | 'dark' | 'system') {
-  localStorage.setItem('theme', theme)
-  
   if (theme === 'system') {
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     document.documentElement.classList.toggle('dark', systemTheme === 'dark')
@@ -159,17 +157,14 @@ export function setTheme(theme: 'light' | 'dark' | 'system') {
 }
 
 export function getTheme(): 'light' | 'dark' | 'system' {
-  return (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system'
+  return 'system'
 }
 
 export function initTheme() {
-  const theme = getTheme()
-  setTheme(theme)
-  
+  setTheme('system')
+
   // Listen for system theme changes
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if (getTheme() === 'system') {
-      setTheme('system')
-    }
+    // Only auto-update if system theme is active (will be handled by ThemeProvider)
   })
 }

@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Search, Plus, Settings, Menu, Copy, Check, Key } from 'lucide-react'
 import { ContactItem } from './ContactItem'
 import { EmptyState } from './EmptyState'
-import { getDatabase } from '../db'
 import { copyDeviceKeyToClipboard } from '../utils/deviceKey'
 import type { Contact } from '../db'
 
 interface SidebarProps {
   deviceKey: string
+  contacts: Contact[]
   selectedContactId?: string
   onSelectContact: (contact: Contact) => void
   onNewChat: () => void
@@ -16,36 +16,15 @@ interface SidebarProps {
 
 export function Sidebar({
   deviceKey,
+  contacts,
   selectedContactId,
   onSelectContact,
   onNewChat,
   onSettings
 }: SidebarProps) {
-  const [contacts, setContacts] = useState<Contact[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [keyCopied, setKeyCopied] = useState(false)
-
-  // Load contacts from IndexedDB
-  useEffect(() => {
-    loadContacts()
-  }, [])
-
-  const loadContacts = async () => {
-    try {
-      const db = await getDatabase()
-      const allContacts = await db.getContacts()
-      // Sort by last message time (most recent first)
-      const sorted = allContacts.sort((a, b) => {
-        const timeA = a.lastMessageTime?.getTime() || 0
-        const timeB = b.lastMessageTime?.getTime() || 0
-        return timeB - timeA
-      })
-      setContacts(sorted)
-    } catch (error) {
-      console.error('Failed to load contacts:', error)
-    }
-  }
 
   // Filter contacts by search query
   const filteredContacts = searchQuery.trim()

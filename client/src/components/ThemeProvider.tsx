@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import { setTheme, getTheme, initTheme } from '../utils'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { setTheme } from '../utils'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -24,37 +24,39 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(getTheme())
-  const [isDark, setIsDark] = useState(false)
+  // Initialize from system preference — no localStorage
+  const getSystemIsDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches
+  const [theme, setThemeState] = useState<Theme>('system')
+  const [isDark, setIsDark] = useState(getSystemIsDark)
+
+  const updateIsDark = useCallback((currentTheme: Theme) => {
+    if (currentTheme === 'system') {
+      setIsDark(getSystemIsDark())
+    } else {
+      setIsDark(currentTheme === 'dark')
+    }
+  }, [])
 
   useEffect(() => {
-    initTheme()
-    updateIsDark()
+    setTheme(theme)
+    updateIsDark(theme)
 
     // Listen for system theme changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = () => {
       if (theme === 'system') {
-        updateIsDark()
+        updateIsDark('system')
       }
     }
 
     mediaQuery.addEventListener('change', handleChange)
     return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [theme])
-
-  const updateIsDark = () => {
-    if (theme === 'system') {
-      setIsDark(window.matchMedia('(prefers-color-scheme: dark)').matches)
-    } else {
-      setIsDark(theme === 'dark')
-    }
-  }
+  }, [theme, updateIsDark])
 
   const handleSetTheme = (newTheme: Theme) => {
     setTheme(newTheme)
     setThemeState(newTheme)
-    updateIsDark()
+    updateIsDark(newTheme)
   }
 
   return (

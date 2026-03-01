@@ -4,18 +4,17 @@ import { ThemeToggle } from './components/ThemeToggle'
 import { UserMenu } from './components/UserMenu'
 import { IncomingCallModal } from './components/IncomingCallModal'
 import { CallInterface } from './components/CallInterface'
-import { KeyWelcomeScreen } from './components/KeyWelcomeScreen'
 import { MainChatLayout } from './components/MainChatLayout'
-import { getDeviceKey, isFirstTimeUser } from './utils/deviceKey'
+import { generateInviteCode } from './utils/deviceKey'
 import { useWebRTC } from './hooks/useWebRTC'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import socketService from './socket'
 import { useNotifications } from './components/NotificationProvider'
 import type { User, CallType } from './types'
 
 function ChatApp() {
-  const [deviceKey, setDeviceKey] = useState<string | null>(null)
-  const [showWelcome, setShowWelcome] = useState(false)
+  // Generate ephemeral invite code once per session (lost on refresh by design)
+  const inviteCode = useMemo(() => generateInviteCode(), [])
   const [isLoading, setIsLoading] = useState(true)
 
   const [incomingCall, setIncomingCall] = useState<{
@@ -25,21 +24,13 @@ function ChatApp() {
 
   const { addNotification } = useNotifications()
 
-  // Initialize device key and connect socket
+  // Initialize socket connection with ephemeral invite code
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Check if first time user
-        const isFirstTime = isFirstTimeUser()
-        const key = getDeviceKey() // Gets or generates
-        
-        setDeviceKey(key)
-        setShowWelcome(isFirstTime)
-        
-        // Connect socket with device key
-        await socketService.connect(key, key)
-      } catch (error) {
-        console.error('Failed to initialize:', error)
+        // Connect socket with ephemeral invite code (no localStorage)
+        await socketService.connect(inviteCode, inviteCode)
+      } catch {
         addNotification('error', 'Failed to connect to server')
       } finally {
         setIsLoading(false)
@@ -51,20 +42,19 @@ function ChatApp() {
     return () => {
       socketService.disconnect()
     }
-  }, [addNotification])
+  }, [inviteCode, addNotification])
 
-  // Create a dummy user for WebRTC based on device key
-  const dummyUser = deviceKey ? {
-    code: deviceKey,
-    deviceName: deviceKey,
+  // Create a user object for WebRTC based on invite code
+  const dummyUser = useMemo(() => ({
+    code: inviteCode,
+    deviceName: inviteCode,
     avatar: undefined
-  } : null
+  }), [inviteCode])
 
   const {
     callState,
     localStream,
     remoteStream,
-    initiateCall,
     acceptCall,
     rejectCall,
     endCall,
@@ -128,7 +118,6 @@ function ChatApp() {
       await acceptCall(incomingCall.type, incomingCall.from)
       setIncomingCall(null)
     } catch (error) {
-      console.error('Failed to accept call:', error)
       if (error instanceof Error) {
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
           addNotification('error', 'Permission denied. Please allow access to camera/microphone.')
@@ -158,17 +147,7 @@ function ChatApp() {
     )
   }
 
-  // Show welcome screen for first-time users
-  if (showWelcome && deviceKey) {
-    return (
-      <KeyWelcomeScreen 
-        deviceKey={deviceKey} 
-        onContinue={() => setShowWelcome(false)} 
-      />
-    )
-  }
-
-  // Main app interface
+  // Main app interface — always show chat directly (ephemeral, no welcome screen)
   return (
     <div className="min-h-screen">
       <ThemeToggle />
@@ -189,8 +168,8 @@ function ChatApp() {
       )}
 
       {/* Main Chat Interface (hidden during call) */}
-      {callState.status === 'idle' && deviceKey && (
-        <MainChatLayout deviceKey={deviceKey} />
+      {callState.status === 'idle' && (
+        <MainChatLayout deviceKey={inviteCode} />
       )}
 
       {/* Incoming Call Modal */}

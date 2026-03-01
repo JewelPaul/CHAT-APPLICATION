@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Sidebar } from './Sidebar'
 import { ChatArea } from './ChatArea'
 import { AddUserModal } from './AddUserModal'
 import { IncomingRequestModal } from './IncomingRequestModal'
-import { getDatabase } from '../db'
 import socketService from '../socket'
 import { useNotifications } from './NotificationProvider'
+import { generateKeyPair, encryptMessage, decryptMessage } from '../encryption'
 import type { Contact, StoredMessage } from '../db'
 import type { CallType } from '../types'
 
@@ -23,147 +23,160 @@ interface ActiveChat {
   roomId: string
 }
 
+// In-memory encryption keys per room (ephemeral, lost on disconnect)
+interface RoomKeys {
+  privateKey: string
+  publicKey: string
+  peerPublicKey?: string
+}
+
 export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [messages, setMessages] = useState<StoredMessage[]>([])
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
+  // In-memory contacts (ephemeral — lost on refresh)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [activeChats, setActiveChats] = useState<Map<string, ActiveChat>>(new Map())
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null)
   const [incomingRequest, setIncomingRequest] = useState<{ fromKey: string; fromName: string } | null>(null)
+  // In-memory room encryption keys (ephemeral)
+  const [roomKeys, setRoomKeys] = useState<Map<string, RoomKeys>>(new Map())
+  // Explicit partner key → room ID mapping (avoids fragile substring matching, no re-render needed)
+  const partnerToRoom = useRef<Map<string, string>>(new Map())
   const { addNotification } = useNotifications()
-
-  // Load contacts on mount
-  useEffect(() => {
-    const loadContacts = async () => {
-      try {
-        const db = await getDatabase()
-        const allContacts = await db.getContacts()
-        setContacts(allContacts)
-      } catch (error) {
-        console.error('Failed to load contacts:', error)
-      }
-    }
-    loadContacts()
-  }, [])
 
   // Set up socket listeners
   useEffect(() => {
     // Handle incoming connection request
     const handleIncomingRequest = (data: { fromKey: string; fromName: string }) => {
-      console.log('Incoming request from:', data)
       setIncomingRequest(data)
       addNotification('info', `Connection request from ${data.fromName}`)
     }
 
-    // Handle connection established
+    // Handle connection established — generate key pair and start key exchange
     const handleConnectionEstablished = async (data: { partnerKey: string; partnerName: string; roomId: string }) => {
-      console.log('Connection established:', data)
-      
-      // Add to active chats
-      setActiveChats(prev => new Map(prev).set(data.partnerKey, data))
-      
-      // Create or update contact in database
-      try {
-        const db = await getDatabase()
-        const existingContact = await db.getContact(data.partnerKey)
-        
-        if (!existingContact) {
-          const newContact: Contact = {
-            id: data.partnerKey,
-            username: data.partnerName,
-            displayName: data.partnerName,
-            status: 'online',
-            lastSeen: new Date(),
-            createdAt: new Date()
-          }
-          await db.addContact(newContact)
-          
-          // Reload contacts
-          const allContacts = await db.getContacts()
-          setContacts(allContacts)
-          
-          // Auto-select the new contact
-          setSelectedContact(newContact)
-          setCurrentRoomId(data.roomId)
-        } else {
-          setSelectedContact(existingContact)
-          setCurrentRoomId(data.roomId)
-        }
-      } catch (error) {
-        console.error('Failed to create contact:', error)
+      // Create in-memory contact (not persisted)
+      const newContact: Contact = {
+        id: data.partnerKey,
+        username: data.partnerName,
+        displayName: data.partnerName,
+        status: 'online',
+        lastSeen: new Date(),
+        unreadCount: 0
       }
-      
+
+      setContacts(prev => {
+        const exists = prev.some(c => c.id === data.partnerKey)
+        return exists ? prev : [...prev, newContact]
+      })
+
+      setActiveChats(prev => new Map(prev).set(data.partnerKey, data))
+      partnerToRoom.current.set(data.partnerKey, data.roomId)
+      setSelectedContact(newContact)
+      setCurrentRoomId(data.roomId)
+
+      // Generate ECDH key pair for this room session
+      try {
+        const keys = await generateKeyPair()
+        setRoomKeys(prev => {
+          const next = new Map(prev)
+          next.set(data.roomId, { privateKey: keys.privateKey, publicKey: keys.publicKey })
+          return next
+        })
+        // Send our public key to partner
+        socketService.sendPublicKey(data.roomId, keys.publicKey)
+      } catch {
+        // Key generation failed — chat still works but without encryption
+      }
+
       addNotification('success', `Connected with ${data.partnerName}`)
+    }
+
+    // Handle key exchange from partner
+    const handleKeyExchange = async (data: { fromKey: string; publicKey: string; roomId: string }) => {
+      setRoomKeys(prev => {
+        const existing = prev.get(data.roomId)
+        if (!existing) return prev
+        const next = new Map(prev)
+        next.set(data.roomId, { ...existing, peerPublicKey: data.publicKey })
+        return next
+      })
     }
 
     // Handle new message
     const handleNewMessage = async (data: { id: string; fromKey: string; content: string; timestamp: number; roomId: string }) => {
-      console.log('New message:', data)
-      
       // Don't add message if it's from us (already added when sending)
       if (data.fromKey === deviceKey) {
         return
       }
-      
-      // Find contact by device key
-      try {
-        const db = await getDatabase()
-        const contact = await db.getContact(data.fromKey)
-        
-        if (contact) {
-          // Save message to IndexedDB
-          const newMessage: StoredMessage = {
-            id: data.id,
-            chatId: contact.id,
-            senderId: data.fromKey,
-            recipientId: deviceKey,
-            content: data.content,
-            type: 'text',
-            timestamp: new Date(data.timestamp),
-            status: 'delivered'
+
+      // Attempt to decrypt if we have keys for this room
+      let content = data.content
+      const keys = roomKeys.get(data.roomId)
+      if (keys?.privateKey && keys.peerPublicKey) {
+        try {
+          const parsed: unknown = JSON.parse(data.content)
+          if (
+            parsed !== null &&
+            typeof parsed === 'object' &&
+            'encrypted' in parsed &&
+            'iv' in parsed &&
+            typeof (parsed as { encrypted: unknown }).encrypted === 'string' &&
+            typeof (parsed as { iv: unknown }).iv === 'string'
+          ) {
+            const { encrypted, iv } = parsed as { encrypted: string; iv: string }
+            content = await decryptMessage(encrypted, iv, keys.privateKey, keys.peerPublicKey)
           }
-          
-          await db.saveMessage(newMessage)
-          
-          // Update UI if this contact is selected
-          if (selectedContact?.id === contact.id) {
-            setMessages(prev => [...prev, newMessage])
-          }
-          
-          // Update contact's last message
-          await db.updateContact(contact.id, {
-            lastMessage: data.content,
-            lastMessageTime: new Date(data.timestamp),
-            unreadCount: selectedContact?.id === contact.id ? 0 : (contact.unreadCount || 0) + 1
-          })
-          
-          // Reload contacts to update sidebar
-          const allContacts = await db.getContacts()
-          setContacts(allContacts)
+        } catch {
+          // Not encrypted or decryption failed — use as-is
         }
-      } catch (error) {
-        console.error('Failed to handle new message:', error)
       }
+
+      const newMessage: StoredMessage = {
+        id: data.id,
+        chatId: data.fromKey,
+        senderId: data.fromKey,
+        recipientId: deviceKey,
+        content,
+        type: 'text',
+        timestamp: new Date(data.timestamp),
+        status: 'delivered'
+      }
+
+      // Update messages if this contact is currently selected
+      setSelectedContact(prev => {
+        if (prev?.id === data.fromKey) {
+          setMessages(msgs => [...msgs, newMessage])
+        }
+        return prev
+      })
+
+      // Update contact's last message
+      setContacts(prev => prev.map(c =>
+        c.id === data.fromKey
+          ? { ...c, lastMessage: content, lastMessageTime: new Date(data.timestamp) }
+          : c
+      ))
     }
 
     // Handle typing indicators
     const handleUserTyping = (data: { userKey: string }) => {
-      if (selectedContact?.id === data.userKey) {
-        setIsTyping(true)
-      }
+      setSelectedContact(prev => {
+        if (prev?.id === data.userKey) {
+          setIsTyping(true)
+        }
+        return prev
+      })
     }
 
     const handleUserStoppedTyping = (data: { userKey: string }) => {
-      if (selectedContact?.id === data.userKey) {
-        setIsTyping(false)
-      }
-    }
-
-    // Handle request sent confirmation
-    const handleRequestSent = (data: { targetKey: string }) => {
-      console.log('Request sent to:', data.targetKey)
+      setSelectedContact(prev => {
+        if (prev?.id === data.userKey) {
+          setIsTyping(false)
+        }
+        return prev
+      })
     }
 
     // Handle user not found
@@ -176,33 +189,63 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
       addNotification('warning', 'Connection request was declined')
     }
 
+    // Handle partner disconnect — destroy room and keys
+    const handleUserOffline = (data: { deviceKey: string }) => {
+      const key = data.deviceKey
+      setContacts(prev => prev.filter(c => c.id !== key))
+      setActiveChats(prev => {
+        const next = new Map(prev)
+        next.delete(key)
+        return next
+      })
+      // Use explicit partner→room mapping for precise key cleanup
+      const roomIdForPartner = partnerToRoom.current.get(key)
+      if (roomIdForPartner) {
+        setRoomKeys(keys => {
+          const next = new Map(keys)
+          next.delete(roomIdForPartner)
+          return next
+        })
+      }
+      partnerToRoom.current.delete(key)
+      setSelectedContact(prev => {
+        if (prev?.id === key) {
+          setMessages([])
+          setCurrentRoomId(null)
+          addNotification('warning', 'Chat partner disconnected — session ended')
+          return null
+        }
+        return prev
+      })
+    }
+
     // Register listeners
     socketService.on('incoming-request', handleIncomingRequest)
     socketService.on('connection-established', handleConnectionEstablished)
+    socketService.on('key-exchange', handleKeyExchange)
     socketService.on('new-message', handleNewMessage)
     socketService.on('user-typing', handleUserTyping)
     socketService.on('user-stopped-typing', handleUserStoppedTyping)
-    socketService.on('request-sent', handleRequestSent)
     socketService.on('user-not-found', handleUserNotFound)
     socketService.on('request-rejected', handleRequestRejected)
+    socketService.on('user-offline', handleUserOffline)
 
     return () => {
       socketService.off('incoming-request', handleIncomingRequest)
       socketService.off('connection-established', handleConnectionEstablished)
+      socketService.off('key-exchange', handleKeyExchange)
       socketService.off('new-message', handleNewMessage)
       socketService.off('user-typing', handleUserTyping)
       socketService.off('user-stopped-typing', handleUserStoppedTyping)
-      socketService.off('request-sent', handleRequestSent)
       socketService.off('user-not-found', handleUserNotFound)
       socketService.off('request-rejected', handleRequestRejected)
+      socketService.off('user-offline', handleUserOffline)
     }
-  }, [selectedContact, deviceKey, addNotification])
+  }, [deviceKey, addNotification, roomKeys])
 
-  // Load messages when contact is selected
+  // Update messages and room ID when selected contact changes
   useEffect(() => {
     if (selectedContact) {
-      loadMessages(selectedContact.id)
-      // Set room ID if we have an active chat with this contact
       const activeChat = activeChats.get(selectedContact.id)
       if (activeChat) {
         setCurrentRoomId(activeChat.roomId)
@@ -213,33 +256,11 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
     }
   }, [selectedContact, activeChats])
 
-  const loadMessages = async (contactId: string) => {
-    try {
-      const db = await getDatabase()
-      const chatMessages = await db.getMessages(contactId)
-      setMessages(chatMessages)
-    } catch (error) {
-      console.error('Failed to load messages:', error)
-    }
-  }
-
-  const handleSelectContact = async (contact: Contact) => {
+  const handleSelectContact = useCallback((contact: Contact) => {
     setSelectedContact(contact)
-    
-    // Mark messages as read
-    if (contact.unreadCount && contact.unreadCount > 0) {
-      try {
-        const db = await getDatabase()
-        await db.updateContact(contact.id, { unreadCount: 0 })
-        
-        // Reload contacts
-        const allContacts = await db.getContacts()
-        setContacts(allContacts)
-      } catch (error) {
-        console.error('Failed to mark messages as read:', error)
-      }
-    }
-  }
+    // Load messages for this contact from in-memory state
+    // Messages are already in React state, no DB needed
+  }, [])
 
   const handleNewChat = () => {
     setIsAddUserModalOpen(true)
@@ -254,7 +275,6 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
 
   const handleAcceptRequest = () => {
     if (incomingRequest) {
-      console.log('Accepting request from:', incomingRequest.fromKey)
       socketService.acceptRequest(incomingRequest.fromKey)
       setIncomingRequest(null)
     }
@@ -262,7 +282,6 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
 
   const handleRejectRequest = () => {
     if (incomingRequest) {
-      console.log('Rejecting request from:', incomingRequest.fromKey)
       socketService.rejectRequest(incomingRequest.fromKey)
       setIncomingRequest(null)
     }
@@ -274,42 +293,58 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
       return
     }
 
+    // Validate message length (2KB max)
+    if (message.length > 2048) {
+      addNotification('error', 'Message too long (max 2KB)')
+      return
+    }
+
     try {
-      // Save message to IndexedDB first
-      const db = await getDatabase()
       const msgId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+
+      // Attempt end-to-end encryption
+      let contentToSend = message
+      const keys = roomKeys.get(currentRoomId)
+      if (keys?.privateKey && keys.peerPublicKey) {
+        try {
+          const encrypted = await encryptMessage(message, keys.privateKey, keys.peerPublicKey)
+          contentToSend = JSON.stringify(encrypted)
+        } catch {
+          // Encryption failed — send plaintext (still secure via TLS)
+        }
+      }
+
+      // Add to local messages immediately (in-memory only)
       const newMessage: StoredMessage = {
         id: msgId,
         chatId: selectedContact.id,
         senderId: deviceKey,
         recipientId: selectedContact.id,
-        content: message,
+        content: message, // Store decrypted locally
         type: 'text',
         timestamp: new Date(),
         status: 'sending'
       }
-      
-      await db.saveMessage(newMessage)
+
       setMessages(prev => [...prev, newMessage])
-      
+
       // Update contact's last message
-      await db.updateContact(selectedContact.id, {
-        lastMessage: message,
-        lastMessageTime: new Date()
-      })
-      
+      setContacts(prev => prev.map(c =>
+        c.id === selectedContact.id
+          ? { ...c, lastMessage: message, lastMessageTime: new Date() }
+          : c
+      ))
+
       // Send via socket to room
-      socketService.sendMessage(currentRoomId, message)
-      
+      socketService.sendMessage(currentRoomId, contentToSend)
+
       // Update message status
-      setTimeout(async () => {
-        await db.updateMessageStatus(newMessage.id, 'sent')
-        setMessages(prev => 
+      setTimeout(() => {
+        setMessages(prev =>
           prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m)
         )
       }, 300)
-    } catch (error) {
-      console.error('Failed to send message:', error)
+    } catch {
       addNotification('error', 'Failed to send message')
     }
   }
@@ -353,8 +388,6 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
         const base64Data = reader.result as string
         const base64Content = base64Data.split(',')[1]
 
-        // Save media message to IndexedDB
-        const db = await getDatabase()
         const msgId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
         const newMessage: StoredMessage = {
           id: msgId,
@@ -371,29 +404,28 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
           size: file.size
         }
 
-        await db.saveMessage(newMessage)
         setMessages(prev => [...prev, newMessage])
 
         // Update contact's last message
-        await db.updateContact(selectedContact.id, {
-          lastMessage: `Sent ${file.type.startsWith('image/') ? 'an image' : 'a file'}`,
-          lastMessageTime: new Date()
-        })
+        setContacts(prev => prev.map(c =>
+          c.id === selectedContact.id
+            ? { ...c, lastMessage: `Sent ${file.type.startsWith('image/') ? 'an image' : 'a file'}`, lastMessageTime: new Date() }
+            : c
+        ))
 
         // Send via socket
-        socketService.emit('media-message', {
+        socketService.emit('media-upload', {
+          to: selectedContact.id,
           roomId: currentRoomId,
+          mediaData: base64Content,
           filename: file.name,
-          mimeType: file.type,
-          size: file.size,
-          data: base64Content
+          mimeType: file.type
         })
 
         addNotification('success', 'File sent successfully')
 
         // Update message status
-        setTimeout(async () => {
-          await db.updateMessageStatus(newMessage.id, 'sent')
+        setTimeout(() => {
           setMessages(prev =>
             prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m)
           )
@@ -405,8 +437,7 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
       }
 
       reader.readAsDataURL(file)
-    } catch (error) {
-      console.error('Failed to send file:', error)
+    } catch {
       addNotification('error', 'Failed to send file')
     }
   }
@@ -416,6 +447,7 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
       {/* Sidebar */}
       <Sidebar
         deviceKey={deviceKey}
+        contacts={contacts}
         selectedContactId={selectedContact?.id}
         onSelectContact={handleSelectContact}
         onNewChat={handleNewChat}

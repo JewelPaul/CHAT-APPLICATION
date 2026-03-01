@@ -19,26 +19,23 @@ class SocketService {
       })
 
       this.socket.on('connect', () => {
-        console.log('Socket connected:', this.socket?.id)
-        // Register with device key on connection
+        // Register with invite code on connection
         this.socket?.emit('register', { deviceKey, deviceName })
       })
 
-      this.socket.on('registered', (data) => {
-        console.log('Registered successfully:', data)
+      this.socket.on('registered', () => {
         resolve(this.socket!)
       })
 
-      this.socket.on('error', (data) => {
-        console.error('Socket error:', data)
+      this.socket.on('error', () => {
+        // Handle socket errors silently
       })
 
       this.socket.on('disconnect', () => {
-        console.log('Socket disconnected')
+        // Socket disconnected — ephemeral data is gone
       })
 
       this.socket.on('connect_error', (error) => {
-        console.error('Connection error:', error)
         reject(error)
       })
     })
@@ -69,6 +66,11 @@ class SocketService {
     this.socket?.emit('send-message', { roomId, message })
   }
 
+  // Key exchange — relay ECDH public key to room partner
+  sendPublicKey(roomId: string, publicKey: string): void {
+    this.socket?.emit('key-exchange', { roomId, publicKey })
+  }
+
   // Typing indicators
   startTyping(roomId: string): void {
     this.socket?.emit('typing-start', { roomId })
@@ -76,6 +78,11 @@ class SocketService {
 
   stopTyping(roomId: string): void {
     this.socket?.emit('typing-stop', { roomId })
+  }
+
+  // Generic emit for custom events
+  emit(event: string, data: unknown): void {
+    this.socket?.emit(event, data)
   }
 
   // Event listeners

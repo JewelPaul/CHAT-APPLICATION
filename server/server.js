@@ -496,6 +496,42 @@ io.on('connection', (socket) => {
         }
     });
 
+    // KEY EXCHANGE — relay ECDH public key to room partner
+    socket.on('key-exchange', (data) => {
+        try {
+            const senderKey = sockets.get(socket.id);
+            if (!senderKey) {
+                socket.emit('error', { message: 'Not registered' });
+                return;
+            }
+
+            if (!data || typeof data !== 'object' || !data.roomId || !data.publicKey) {
+                socket.emit('error', { message: 'Invalid key exchange data' });
+                return;
+            }
+
+            const { roomId, publicKey } = data;
+            const room = chatRooms.get(roomId);
+
+            if (!room) {
+                socket.emit('error', { message: 'Room not found' });
+                return;
+            }
+
+            if (room.user1 !== senderKey && room.user2 !== senderKey) {
+                socket.emit('error', { message: 'Not authorized for this room' });
+                return;
+            }
+
+            // Relay to the other user in the room
+            socket.to(roomId).emit('key-exchange', { fromKey: senderKey, publicKey, roomId });
+
+            logger.info('Key exchange relayed', { from: senderKey, roomId });
+        } catch (error) {
+            logger.error('Error in key-exchange handler', { error: error.message, socketId: socket.id });
+        }
+    });
+
     // TYPING
     socket.on('typing-start', (data) => {
         try {

@@ -31,8 +31,8 @@ export interface Contact {
   username: string;
   displayName: string;
   avatar?: string;
-  publicKey: string;
-  status: 'pending' | 'accepted' | 'blocked';
+  publicKey?: string;
+  status: 'pending' | 'accepted' | 'blocked' | 'online' | 'offline';
   lastSeen?: Date;
   unreadCount: number;
   lastMessage?: string;
@@ -45,11 +45,15 @@ export interface StoredMessage {
   senderId: string;
   recipientId: string;
   content: string; // encrypted
-  type: 'text' | 'image' | 'file' | 'audio' | 'video' | 'system';
+  type: 'text' | 'image' | 'file' | 'audio' | 'video' | 'system' | 'media';
   timestamp: Date;
   status: 'sending' | 'sent' | 'delivered' | 'read';
   replyTo?: string;
   reactions?: Array<{ emoji: string; userId: string }>;
+  mediaData?: string;
+  mimeType?: string;
+  filename?: string;
+  size?: number;
 }
 
 export interface MediaItem {
@@ -390,7 +394,7 @@ class ChatDatabase {
    * Settings operations
    */
 
-  async saveSetting(key: string, value: any): Promise<void> {
+  async saveSetting(key: string, value: unknown): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     return new Promise((resolve, reject) => {
@@ -403,7 +407,7 @@ class ChatDatabase {
     });
   }
 
-  async getSetting(key: string): Promise<any> {
+  async getSetting(key: string): Promise<unknown> {
     if (!this.db) throw new Error('Database not initialized');
 
     return new Promise((resolve, reject) => {
@@ -447,7 +451,7 @@ class ChatDatabase {
   /**
    * Export all data for backup
    */
-  async exportData(): Promise<any> {
+  async exportData(): Promise<Record<string, unknown>> {
     if (!this.db) throw new Error('Database not initialized');
 
     const [users, contacts, messages, settings] = await Promise.all([
@@ -470,7 +474,7 @@ class ChatDatabase {
   /**
    * Import data from backup
    */
-  async importData(data: any): Promise<void> {
+  async importData(data: Record<string, unknown[]>): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     // Clear existing data first
@@ -491,7 +495,7 @@ class ChatDatabase {
     }
   }
 
-  private async getAllFromStore(storeName: string): Promise<any[]> {
+  private async getAllFromStore(storeName: string): Promise<unknown[]> {
     if (!this.db) throw new Error('Database not initialized');
 
     return new Promise((resolve, reject) => {
@@ -504,7 +508,7 @@ class ChatDatabase {
     });
   }
 
-  private async importToStore(storeName: string, data: any[]): Promise<void> {
+  private async importToStore(storeName: string, data: unknown[]): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     return new Promise((resolve, reject) => {
