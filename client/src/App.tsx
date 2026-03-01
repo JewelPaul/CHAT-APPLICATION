@@ -4,17 +4,23 @@ import { ThemeToggle } from './components/ThemeToggle'
 import { IncomingCallModal } from './components/IncomingCallModal'
 import { CallInterface } from './components/CallInterface'
 import { MainChatLayout } from './components/MainChatLayout'
-import { getOrCreateInviteCode } from './utils/deviceKey'
+import { WelcomeScreen } from './components/WelcomeScreen'
+import { getOrCreateInviteCode, saveInviteCode } from './utils/deviceKey'
 import { useWebRTC } from './hooks/useWebRTC'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import socketService from './socket'
 import { useNotifications } from './components/NotificationProvider'
-import type { User, CallType } from './types'
+import type { User, CallType, ConnectionStatus } from './types'
 
 function ChatApp() {
   // Persistent invite code — survives page reload, stored in localStorage
-  const inviteCode = useMemo(() => getOrCreateInviteCode(), [])
+  const [inviteCode, setInviteCode] = useState(() => getOrCreateInviteCode())
+  // Capture initial code for socket connection — changes via update-invite-code don't need reconnect
+  const initialInviteCodeRef = useRef(inviteCode)
   const [isLoading, setIsLoading] = useState(true)
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting')
+  // activeSession: false = show landing screen, true = show chat layout
+  const [activeSession, setActiveSession] = useState(false)
 
   const [incomingCall, setIncomingCall] = useState<{
     from: User
@@ -23,12 +29,15 @@ function ChatApp() {
 
   const { addNotification } = useNotifications()
 
-  // Initialize socket connection with persistent invite code
+  // Initialize socket connection once with the initial invite code
   useEffect(() => {
+    const code = initialInviteCodeRef.current
     const initialize = async () => {
       try {
-        await socketService.connect(inviteCode, inviteCode)
+        await socketService.connect(code, code)
+        setConnectionStatus('connected')
       } catch {
+        setConnectionStatus('error')
         addNotification('error', 'Failed to connect to server')
       } finally {
         setIsLoading(false)
@@ -40,7 +49,28 @@ function ChatApp() {
     return () => {
       socketService.disconnect()
     }
-  }, [inviteCode, addNotification])
+  }, [addNotification])
+
+  // Switch to chat layout when a connection is established
+  useEffect(() => {
+    const handleConnectionEstablished = () => {
+      setActiveSession(true)
+    }
+    socketService.on('connection-established', handleConnectionEstablished)
+    return () => {
+      socketService.off('connection-established', handleConnectionEstablished)
+    }
+  }, [])
+
+  const handleInviteCodeChange = useCallback((newCode: string) => {
+    saveInviteCode(newCode)
+    setInviteCode(newCode)
+  }, [])
+
+  const handleSendConnectionRequest = useCallback((code: string) => {
+    socketService.sendRequest(code)
+    addNotification('info', `Connection request sent to ${code}`)
+  }, [addNotification])
 
   const dummyUser = useMemo(() => ({
     code: inviteCode,
@@ -147,6 +177,16 @@ function ChatApp() {
       {/* Theme toggle — only top-right control */}
       <ThemeToggle />
 
+      {/* Landing Screen — shown when no active session */}
+      {!activeSession && (
+        <WelcomeScreen
+          inviteCode={inviteCode}
+          connectionStatus={connectionStatus}
+          onSendConnectionRequest={handleSendConnectionRequest}
+          onInviteCodeChange={handleInviteCodeChange}
+        />
+      )}
+
       {/* Active Call Interface */}
       {(callState.status === 'calling' || callState.status === 'active') &&
        callState.remoteUser && (
@@ -161,15 +201,15 @@ function ChatApp() {
         />
       )}
 
-      {/* Main Chat Interface (hidden during call) */}
-      {callState.status === 'idle' && (
+      {/* Main Chat Interface — always mounted to capture socket events, hidden until session active */}
+      <div className={activeSession && callState.status === 'idle' ? 'block' : 'hidden'}>
         <MainChatLayout
           deviceKey={inviteCode}
           onInitiateCall={(type: CallType) => {
             addNotification('info', `${type === 'audio' ? 'Voice' : 'Video'} call feature coming soon`)
           }}
         />
-      )}
+      </div>
 
       {/* Incoming Call Modal */}
       {incomingCall && (

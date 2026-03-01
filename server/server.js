@@ -686,7 +686,7 @@ io.on('connection', (socket) => {
             io.to(targetUser.socketId).emit('call-incoming', {
                 from: callerCode,
                 type,
-                deviceName: users.get(callerCode).deviceName
+                deviceName: users.get(callerCode)?.name || callerCode
             });
 
             logger.info('Call initiated', { from: callerCode, to, type });

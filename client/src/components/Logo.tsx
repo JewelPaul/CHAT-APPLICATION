@@ -1,4 +1,4 @@
-import { Shield, Waves } from 'lucide-react'
+import { Shield, MessageSquare } from 'lucide-react'
 
 interface LogoProps {
   size?: 'small' | 'medium' | 'large'
@@ -10,37 +10,36 @@ export function Logo({ size = 'medium', variant = 'full', className = '' }: Logo
   const sizeClasses = {
     small: 'text-lg',
     medium: 'text-2xl',
-    large: 'text-4xl'
+    large: 'text-3xl'
   }
 
   const iconSizeClasses = {
     small: 'w-5 h-5',
     medium: 'w-8 h-8',
-    large: 'w-12 h-12'
+    large: 'w-10 h-10'
   }
 
   if (variant === 'icon') {
     return (
       <div className={`relative ${className}`}>
-        <Shield className={`${iconSizeClasses[size]} text-gold-primary`} />
-        <Waves className={`absolute inset-0 ${iconSizeClasses[size]} text-gold-light opacity-50 animate-pulse`} />
+        <Shield className={`${iconSizeClasses[size]} text-[var(--accent)]`} />
       </div>
     )
   }
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <div className="relative">
-        <Shield className={`${iconSizeClasses[size]} text-gold-primary drop-shadow-lg`} />
-        <Waves className={`absolute inset-0 ${iconSizeClasses[size]} text-gold-light opacity-50 animate-pulse`} />
+      <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-[var(--accent)]/10 border border-[var(--accent)]/20">
+        <Shield className={`${iconSizeClasses[size]} text-[var(--accent)]`} />
+        <MessageSquare className="absolute bottom-0 right-0 w-3.5 h-3.5 text-[var(--accent)] translate-x-1 translate-y-1" />
       </div>
       <div className="flex flex-col">
-        <h1 className={`font-bold text-gradient ${sizeClasses[size]} leading-none drop-shadow-lg`}>
+        <h1 className={`font-bold text-[var(--text-primary)] ${sizeClasses[size]} leading-none tracking-tight`}>
           ChatWave
         </h1>
         {size !== 'small' && (
-          <p className="text-xs text-gold-primary/80 font-semibold tracking-wide">
-            Ephemeral Secure Chat
+          <p className="text-xs text-[var(--text-muted)] font-medium tracking-wide mt-0.5">
+            Ephemeral · Encrypted
           </p>
         )}
       </div>

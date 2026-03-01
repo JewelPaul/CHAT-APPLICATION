@@ -30,6 +30,12 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
   const isInitiatorRef = useRef<boolean>(false)
   // Flag to prevent multiple concurrent offer creation attempts
   const isCreatingOfferRef = useRef<boolean>(false)
+  // Ref always holds the current remote user — avoids stale closures in event handlers
+  const remoteUserRef = useRef<User | null>(remoteUser)
+  // Keep ref in sync with prop changes
+  useEffect(() => {
+    remoteUserRef.current = remoteUser
+  }, [remoteUser])
 
   // Clean up media streams and peer connection
   const cleanup = useCallback(() => {
@@ -123,9 +129,9 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
           console.log('[WebRTC] Generated ICE candidate:', event.candidate.type)
-          if (remoteUser) {
+          if (remoteUserRef.current) {
             socketService.sendWebRTCSignal(
-              remoteUser.code,
+              remoteUserRef.current.code,
               event.candidate.toJSON(),
               'ice-candidate'
             )
@@ -168,8 +174,8 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
             console.log('[WebRTC] Creating new offer due to negotiation needed')
             const offer = await peerConnection.createOffer()
             await peerConnection.setLocalDescription(offer)
-            if (remoteUser) {
-              socketService.sendWebRTCSignal(remoteUser.code, offer, 'offer')
+            if (remoteUserRef.current) {
+              socketService.sendWebRTCSignal(remoteUserRef.current.code, offer, 'offer')
             }
           } catch (error) {
             console.error('[WebRTC] Error during renegotiation:', error)
@@ -184,7 +190,7 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
       console.error('[WebRTC] Error initializing peer connection:', error)
       throw error
     }
-  }, [remoteUser, cleanup])
+  }, [cleanup])
 
   // Initiate a call (caller side)
   const initiateCall = useCallback(async (callType: CallType) => {
@@ -193,6 +199,7 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
     try {
       console.log('[WebRTC] Initiating', callType, 'call to', remoteUser.code)
       isInitiatorRef.current = true
+      remoteUserRef.current = remoteUser
       
       setCallState({
         status: 'calling',
@@ -223,6 +230,7 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
     try {
       console.log('[WebRTC] Accepting', callType, 'call from', fromUser.code)
       isInitiatorRef.current = false
+      remoteUserRef.current = fromUser
       
       setCallState({
         status: 'active',
@@ -253,11 +261,11 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
 
   // End an active call
   const endCall = useCallback(() => {
-    if (remoteUser) {
-      socketService.endCall(remoteUser.code)
+    if (remoteUserRef.current) {
+      socketService.endCall(remoteUserRef.current.code)
     }
     cleanup()
-  }, [remoteUser, cleanup])
+  }, [cleanup])
 
   // Toggle mute
   const toggleMute = useCallback(() => {
@@ -356,8 +364,8 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
           await peerConnectionRef.current.setLocalDescription(offer)
           console.log('[WebRTC] Local description set from offer')
           
-          if (remoteUser) {
-            socketService.sendWebRTCSignal(remoteUser.code, offer, 'offer')
+          if (remoteUserRef.current) {
+            socketService.sendWebRTCSignal(remoteUserRef.current.code, offer, 'offer')
             console.log('[WebRTC] Offer sent to remote peer')
           }
         } catch (error) {
@@ -373,7 +381,7 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
       socketService.off('webrtc-signal', handleWebRTCSignal)
       socketService.off('call-accepted', handleCallAccepted)
     }
-  }, [remoteUser, processIceCandidateQueue])
+  }, [processIceCandidateQueue])
 
   // Cleanup on unmount
   useEffect(() => {
