@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Avatar } from '../ui/Avatar'
 import { CallControls } from './CallControls'
 import type { User, CallState } from '../../types'
 

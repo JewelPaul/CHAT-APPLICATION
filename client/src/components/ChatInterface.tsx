@@ -115,13 +115,13 @@ export function ChatInterface({
       const base64Data = await fileToBase64(file)
       
       // Send media upload through socket
-      socketService.sendMediaUpload(
-        chat.user.code,
-        chat.roomId,
-        base64Data,
-        file.name,
-        file.type
-      )
+      socketService.emit('media-upload', {
+        to: chat.user.code,
+        roomId: chat.roomId,
+        mediaData: base64Data,
+        filename: file.name,
+        mimeType: file.type
+      })
       
       addNotification('success', `Uploading ${file.name}...`)
     } catch (error) {

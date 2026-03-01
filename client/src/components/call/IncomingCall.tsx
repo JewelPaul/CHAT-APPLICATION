@@ -1,5 +1,4 @@
 import { Phone, Video, X, Check } from 'lucide-react'
-import { Avatar } from '../ui/Avatar'
 import type { User, CallType } from '../../types'
 
 interface IncomingCallProps {

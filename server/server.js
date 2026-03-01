@@ -208,8 +208,8 @@ io.on('connection', (socket) => {
 
             // Update any active rooms
             for (const [roomId, room] of chatRooms.entries()) {
-                if (room.user1 === oldKey) room.user1 = newCode;
-                if (room.user2 === oldKey) room.user2 = newCode;
+                if (room.user1 === oldKey) {room.user1 = newCode;}
+                if (room.user2 === oldKey) {room.user2 = newCode;}
                 // Notify partner of key change if applicable
                 const partnerKey = room.user1 === newCode ? room.user2 : room.user1;
                 const partner = users.get(partnerKey);
@@ -715,7 +715,7 @@ io.on('connection', (socket) => {
             // Notify caller that call was accepted
             io.to(callerUser.socketId).emit('call-accepted', {
                 from: accepterCode,
-                deviceName: users.get(accepterCode).deviceName
+                deviceName: users.get(accepterCode)?.name ?? accepterCode
             });
 
             logger.info('Call accepted', { caller: from, accepter: accepterCode });

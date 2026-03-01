@@ -1,4 +1,3 @@
-import { Download } from 'lucide-react'
 import { formatTimeAgo } from '../utils'
 import { MessageBubble } from './chat/MessageBubble'
 import { ImageMessage } from './chat/ImageMessage'

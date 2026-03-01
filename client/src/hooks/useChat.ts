@@ -61,7 +61,6 @@ export function useChat(options: UseChatOptions = DEFAULT_OPTIONS) {
     const initializeChat = async () => {
       try {
         setConnectionStatus('connecting')
-        await socketService.connect()
         
         // Use auth user if available, otherwise generate random code
         let userCode: string
@@ -77,6 +76,8 @@ export function useChat(options: UseChatOptions = DEFAULT_OPTIONS) {
           deviceName = detectDevice()
         }
         
+        await socketService.connect(userCode, deviceName)
+        
         const newUser: User = { 
           code: userCode, 
           deviceName,
@@ -84,7 +85,6 @@ export function useChat(options: UseChatOptions = DEFAULT_OPTIONS) {
         }
         
         setUser(newUser)
-        socketService.register(userCode, deviceName, avatar)
         
         addNotification('success', 'Connected to ChatWave!')
       } catch (error) {
@@ -273,11 +273,11 @@ export function useChat(options: UseChatOptions = DEFAULT_OPTIONS) {
 
   const sendConnectionRequest = useCallback((code: string) => {
     if (!user) return
-    socketService.sendConnectionRequest(code)
+    socketService.sendRequest(code)
   }, [user])
 
   const acceptConnection = useCallback((code: string) => {
-    socketService.acceptConnection(code)
+    socketService.acceptRequest(code)
   }, [])
 
   const rejectConnection = useCallback(() => {
@@ -287,18 +287,17 @@ export function useChat(options: UseChatOptions = DEFAULT_OPTIONS) {
 
   const sendMessage = useCallback((message: string) => {
     if (!currentChat || !user) return
-    
-    socketService.sendMessage(currentChat.user.code, message, currentChat.roomId)
+    socketService.sendMessage(currentChat.roomId, message)
   }, [currentChat, user])
 
   const sendTypingStart = useCallback(() => {
     if (!currentChat || !user) return
-    socketService.sendTypingStart(currentChat.user.code, currentChat.roomId)
+    socketService.startTyping(currentChat.roomId)
   }, [currentChat, user])
 
   const sendTypingStop = useCallback(() => {
     if (!currentChat || !user) return
-    socketService.sendTypingStop(currentChat.user.code, currentChat.roomId)
+    socketService.stopTyping(currentChat.roomId)
   }, [currentChat, user])
 
   const disconnectChat = useCallback(() => {
