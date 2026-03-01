@@ -80,6 +80,27 @@ class SocketService {
     this.socket?.emit('typing-stop', { roomId })
   }
 
+  // Call signaling
+  initiateCall(toCode: string, callType: string): void {
+    this.socket?.emit('call-initiate', { to: toCode, type: callType })
+  }
+
+  acceptCall(fromCode: string): void {
+    this.socket?.emit('call-accept', { from: fromCode })
+  }
+
+  rejectCall(fromCode: string): void {
+    this.socket?.emit('call-reject', { from: fromCode })
+  }
+
+  endCall(toCode: string): void {
+    this.socket?.emit('call-end', { to: toCode })
+  }
+
+  sendWebRTCSignal(toCode: string, signal: RTCSessionDescriptionInit | RTCIceCandidateInit, signalType: string): void {
+    this.socket?.emit('webrtc-signal', { to: toCode, signal, signalType })
+  }
+
   // Generic emit for custom events
   emit(event: string, data: unknown): void {
     this.socket?.emit(event, data)
