@@ -12,11 +12,8 @@ interface AddUserModalProps {
 
 type ModalState = 'input' | 'sending' | 'waiting' | 'error' | 'not-found' | 'success'
 
-// Device key format validation pattern: CW-XXXX-XXXX-XXXX
-const DEVICE_KEY_PATTERN = /^CW-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/
-
-// Maximum alphanumeric characters after "CW-" prefix (3 groups of 4 = 12 chars, excluding hyphens)
-const MAX_KEY_ALPHANUMERIC_CHARS = 12
+// 6-character uppercase alphanumeric invite code validation
+const INVITE_CODE_PATTERN = /^[A-Z0-9]{6}$/
 
 export function AddUserModal({ 
   isOpen, 
@@ -81,9 +78,9 @@ export function AddUserModal({
     }
   }, [isOpen, userKey, onRequestSent])
 
-  // Validate key format: CW-XXXX-XXXX-XXXX
+  // Validate invite code format: 6 uppercase alphanumeric characters
   const isValidFormat = (key: string): boolean => {
-    return DEVICE_KEY_PATTERN.test(key.toUpperCase())
+    return INVITE_CODE_PATTERN.test(key.toUpperCase())
   }
 
   const handleSubmit = () => {
@@ -91,7 +88,7 @@ export function AddUserModal({
     
     // Validation
     if (!isValidFormat(cleanKey)) {
-      setErrorMessage('Invalid key format. Must be CW-XXXX-XXXX-XXXX')
+      setErrorMessage('Invalid code format. Must be 6 uppercase letters/numbers (e.g. A7X9K3)')
       setState('error')
       return
     }
@@ -113,30 +110,10 @@ export function AddUserModal({
     socketService.sendRequest(cleanKey)
   }
 
-  // Auto-format input as user types
+  // Auto-format input: uppercase alphanumeric only, max 6 chars
   const handleInputChange = (value: string) => {
-    // Remove non-alphanumeric except dashes
-    let cleaned = value.toUpperCase().replace(/[^A-Z0-9-]/g, '')
-    
-    // Auto-add CW- prefix if not present
-    if (!cleaned.startsWith('CW-') && cleaned.length > 0) {
-      if (cleaned.startsWith('CW')) {
-        cleaned = 'CW-' + cleaned.slice(2)
-      } else {
-        cleaned = 'CW-' + cleaned
-      }
-    }
-    
-    // Auto-add dashes at correct positions (Format: CW-XXXX-XXXX-XXXX)
-    // Extract only alphanumeric characters after "CW-"
-    const parts = cleaned.replace('CW-', '').split('-').join('')
-    let formatted = 'CW-'
-    for (let i = 0; i < parts.length && i < MAX_KEY_ALPHANUMERIC_CHARS; i++) {
-      if (i > 0 && i % 4 === 0) formatted += '-'
-      formatted += parts[i]
-    }
-    
-    setUserKey(formatted)
+    const cleaned = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
+    setUserKey(cleaned)
     // Reset error state when user starts typing
     if (state === 'error' || state === 'not-found') {
       setState('input')
@@ -188,11 +165,11 @@ export function AddUserModal({
             type="text"
             value={userKey}
             onChange={(e) => handleInputChange(e.target.value)}
-            placeholder="CW-XXXX-XXXX-XXXX"
+            placeholder="A7X9K3"
             className="w-full bg-[#0a0a0f] border border-gray-700 rounded-xl px-4 py-3 text-white 
                      placeholder-gray-500 focus:outline-none focus:border-indigo-500 font-mono text-lg
-                     transition-colors"
-            maxLength={18}
+                     transition-colors tracking-widest uppercase"
+            maxLength={6}
             disabled={state === 'sending' || state === 'waiting'}
             autoFocus
           />
@@ -204,7 +181,7 @@ export function AddUserModal({
         </div>
         
         <p className="text-gray-500 text-sm mt-2">
-          Format: CW-XXXX-XXXX-XXXX
+          Enter the 6-character invite code shared by your contact
         </p>
         
         {/* Error Message */}

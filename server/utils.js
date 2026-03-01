@@ -33,6 +33,11 @@ function validateUserCode(code) {
   }
   
   const trimmed = code.trim();
+  // Accept 6-char uppercase alphanumeric invite codes (primary format)
+  if (/^[A-Z0-9]{6}$/.test(trimmed)) {
+    return true;
+  }
+  // Also accept general alphanumeric identifiers (3–50 chars) for compatibility
   return trimmed.length >= 3 && trimmed.length <= 50 && /^[a-zA-Z0-9_-]+$/.test(trimmed);
 }
 

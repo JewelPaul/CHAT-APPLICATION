@@ -1,78 +1,66 @@
 /**
- * Device Key Generation and Management
- * Generates permanent device-specific keys for ChatWave users
- * Format: CW-XXXX-XXXX-XXXX
+ * Ephemeral Invite Code Generation
+ * Generates temporary 6-character uppercase alphanumeric invite codes.
+ * Codes are NOT persisted anywhere — each page load generates a fresh code.
+ * Format: 6 uppercase alphanumeric characters (e.g. "A7X9K3")
  */
 
-const STORAGE_KEY = 'chatwave_device_key';
-const KEY_PREFIX = 'CW';
+const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
 /**
- * Generate a random 4-character alphanumeric segment
- * Excludes confusing characters: I, O, 0, 1
+ * Generate a random 6-character uppercase alphanumeric invite code
+ * Uses Web Crypto API for secure randomness
  */
-function generateSegment(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1 for clarity
-  let segment = '';
-  for (let i = 0; i < 4; i++) {
-    segment += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return segment;
+export function generateInviteCode(): string {
+  const array = new Uint8Array(6);
+  window.crypto.getRandomValues(array);
+  return Array.from(array, byte => CHARS[byte % CHARS.length]).join('');
 }
 
 /**
- * Generate a full device key in format: CW-XXXX-XXXX-XXXX
- * Example: CW-A7X9-K3M2-P5N8
+ * Generate a device key (alias for generateInviteCode for compatibility)
  */
 export function generateDeviceKey(): string {
-  return `${KEY_PREFIX}-${generateSegment()}-${generateSegment()}-${generateSegment()}`;
+  return generateInviteCode();
 }
 
 /**
- * Get or create device key
- * If a key doesn't exist, generates and stores one
+ * Get device key — always generates a fresh ephemeral code.
+ * No localStorage persistence — data is lost on refresh (by design).
  */
 export function getDeviceKey(): string {
-  let key = localStorage.getItem(STORAGE_KEY);
-  if (!key) {
-    key = generateDeviceKey();
-    localStorage.setItem(STORAGE_KEY, key);
-  }
-  return key;
+  return generateInviteCode();
 }
 
 /**
- * Check if this is a first-time user (no key exists)
+ * Check if this is a first-time user.
+ * Always returns true since we never persist state.
  */
 export function isFirstTimeUser(): boolean {
-  return !localStorage.getItem(STORAGE_KEY);
+  return true;
 }
 
 /**
- * Get existing key (returns null if none exists)
+ * Get existing key — always returns null since we never persist.
  */
 export function getExistingKey(): string | null {
-  return localStorage.getItem(STORAGE_KEY);
+  return null;
 }
 
 /**
- * Validate device key format
- * Returns true if key matches CW-XXXX-XXXX-XXXX pattern
+ * Validate invite code format: 6 uppercase alphanumeric characters
  */
 export function isValidDeviceKey(key: string): boolean {
-  const pattern = /^CW-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}$/;
-  return pattern.test(key);
+  return /^[A-Z0-9]{6}$/.test(key);
 }
 
 /**
- * Copy device key to clipboard
- * Returns a promise that resolves when copied
+ * Copy invite code to clipboard
  */
 export async function copyDeviceKeyToClipboard(key: string): Promise<void> {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     await navigator.clipboard.writeText(key);
   } else {
-    // Fallback for older browsers
     const textarea = document.createElement('textarea');
     textarea.value = key;
     textarea.style.position = 'fixed';
@@ -83,3 +71,4 @@ export async function copyDeviceKeyToClipboard(key: string): Promise<void> {
     document.body.removeChild(textarea);
   }
 }
+
