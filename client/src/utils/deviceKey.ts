@@ -1,20 +1,83 @@
 /**
- * Ephemeral Invite Code Generation
- * Generates temporary 6-character uppercase alphanumeric invite codes.
- * Codes are NOT persisted anywhere — each page load generates a fresh code.
- * Format: 6 uppercase alphanumeric characters (e.g. "A7X9K3")
+ * Invite Code Generation & Persistence
+ * Format: XXXXX-XXXX — 5 uppercase alphanum, dash, 4 uppercase alphanum (e.g. JWELL-0291)
+ * Persists ONLY inviteCode and displayName in localStorage. No messages, no chat history.
  */
 
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const STORAGE_KEY_CODE = 'inviteCode';
+const STORAGE_KEY_NAME = 'displayName';
 
 /**
- * Generate a random 6-character uppercase alphanumeric invite code
- * Uses Web Crypto API for secure randomness
+ * Generate a new 10-character dash-separated invite code using Web Crypto API.
+ * Format: XXXXX-XXXX (e.g. JWELL-0291)
  */
 export function generateInviteCode(): string {
-  const array = new Uint8Array(6);
-  window.crypto.getRandomValues(array);
-  return Array.from(array, byte => CHARS[byte % CHARS.length]).join('');
+  const part1 = new Uint8Array(5);
+  const part2 = new Uint8Array(4);
+  window.crypto.getRandomValues(part1);
+  window.crypto.getRandomValues(part2);
+  const left = Array.from(part1, byte => CHARS[byte % CHARS.length]).join('');
+  const right = Array.from(part2, byte => CHARS[byte % CHARS.length]).join('');
+  return `${left}-${right}`;
+}
+
+/**
+ * Get the persistent invite code for this device.
+ * Loads from localStorage if available; generates and saves a new one otherwise.
+ */
+export function getOrCreateInviteCode(): string {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_CODE);
+    if (stored && isValidInviteCode(stored)) {
+      return stored;
+    }
+  } catch {
+    // localStorage not available — fall through to generate
+  }
+  const code = generateInviteCode();
+  saveInviteCode(code);
+  return code;
+}
+
+/**
+ * Save invite code to localStorage (only inviteCode — never messages or history)
+ */
+export function saveInviteCode(code: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_CODE, code);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
+ * Get display name from localStorage, or return empty string.
+ */
+export function getDisplayName(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEY_NAME) || '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Save display name to localStorage.
+ */
+export function saveDisplayName(name: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_NAME, name);
+  } catch {
+    // Ignore
+  }
+}
+
+/**
+ * Validate invite code: XXXXX-XXXX — 5 uppercase alphanum + dash + 4 uppercase alphanum
+ */
+export function isValidInviteCode(code: string): boolean {
+  return /^[A-Z0-9]{5}-[A-Z0-9]{4}$/.test(code);
 }
 
 /**
@@ -25,33 +88,17 @@ export function generateDeviceKey(): string {
 }
 
 /**
- * Get device key — always generates a fresh ephemeral code.
- * No localStorage persistence — data is lost on refresh (by design).
+ * Get device key — returns persistent invite code.
  */
 export function getDeviceKey(): string {
-  return generateInviteCode();
+  return getOrCreateInviteCode();
 }
 
 /**
- * Check if this is a first-time user.
- * Always returns true since we never persist state.
- */
-export function isFirstTimeUser(): boolean {
-  return true;
-}
-
-/**
- * Get existing key — always returns null since we never persist.
- */
-export function getExistingKey(): string | null {
-  return null;
-}
-
-/**
- * Validate invite code format: 6 uppercase alphanumeric characters
+ * Validate invite code format (alias)
  */
 export function isValidDeviceKey(key: string): boolean {
-  return /^[A-Z0-9]{6}$/.test(key);
+  return isValidInviteCode(key);
 }
 
 /**

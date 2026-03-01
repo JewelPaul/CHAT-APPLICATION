@@ -12,8 +12,8 @@ interface AddUserModalProps {
 
 type ModalState = 'input' | 'sending' | 'waiting' | 'error' | 'not-found' | 'success'
 
-// 6-character uppercase alphanumeric invite code validation
-const INVITE_CODE_PATTERN = /^[A-Z0-9]{6}$/
+// Invite code validation: XXXXX-XXXX format (e.g. JWELL-0291)
+const INVITE_CODE_PATTERN = /^[A-Z0-9]{5}-[A-Z0-9]{4}$/
 
 export function AddUserModal({ 
   isOpen, 
@@ -78,7 +78,7 @@ export function AddUserModal({
     }
   }, [isOpen, userKey, onRequestSent])
 
-  // Validate invite code format: 6 uppercase alphanumeric characters
+  // Validate invite code format: XXXXX-XXXX
   const isValidFormat = (key: string): boolean => {
     return INVITE_CODE_PATTERN.test(key.toUpperCase())
   }
@@ -88,7 +88,7 @@ export function AddUserModal({
     
     // Validation
     if (!isValidFormat(cleanKey)) {
-      setErrorMessage('Invalid code format. Must be 6 uppercase letters/numbers (e.g. A7X9K3)')
+      setErrorMessage('Invalid code format. Must be XXXXX-XXXX (e.g. JWELL-0291)')
       setState('error')
       return
     }
@@ -110,9 +110,10 @@ export function AddUserModal({
     socketService.sendRequest(cleanKey)
   }
 
-  // Auto-format input: uppercase alphanumeric only, max 6 chars
+  // Auto-format: uppercase alphanum + dash, max 10 chars (XXXXX-XXXX)
   const handleInputChange = (value: string) => {
-    const cleaned = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
+    const upper = value.toUpperCase()
+    const cleaned = upper.replace(/[^A-Z0-9-]/g, '').slice(0, 10)
     setUserKey(cleaned)
     // Reset error state when user starts typing
     if (state === 'error' || state === 'not-found') {
@@ -165,11 +166,11 @@ export function AddUserModal({
             type="text"
             value={userKey}
             onChange={(e) => handleInputChange(e.target.value)}
-            placeholder="A7X9K3"
+            placeholder="ABCDE-1234"
             className="w-full bg-[#0a0a0f] border border-gray-700 rounded-xl px-4 py-3 text-white 
                      placeholder-gray-500 focus:outline-none focus:border-indigo-500 font-mono text-lg
                      transition-colors tracking-widest uppercase"
-            maxLength={6}
+            maxLength={10}
             disabled={state === 'sending' || state === 'waiting'}
             autoFocus
           />
@@ -181,7 +182,7 @@ export function AddUserModal({
         </div>
         
         <p className="text-gray-500 text-sm mt-2">
-          Enter the 6-character invite code shared by your contact
+          Enter the 10-character invite code shared by your contact (e.g. JWELL-0291)
         </p>
         
         {/* Error Message */}

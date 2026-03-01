@@ -1,11 +1,10 @@
 import { ThemeProvider } from './components/ThemeProvider'
 import { NotificationProvider } from './components/NotificationProvider'
 import { ThemeToggle } from './components/ThemeToggle'
-import { UserMenu } from './components/UserMenu'
 import { IncomingCallModal } from './components/IncomingCallModal'
 import { CallInterface } from './components/CallInterface'
 import { MainChatLayout } from './components/MainChatLayout'
-import { generateInviteCode } from './utils/deviceKey'
+import { getOrCreateInviteCode } from './utils/deviceKey'
 import { useWebRTC } from './hooks/useWebRTC'
 import { useState, useEffect, useMemo } from 'react'
 import socketService from './socket'
@@ -13,8 +12,8 @@ import { useNotifications } from './components/NotificationProvider'
 import type { User, CallType } from './types'
 
 function ChatApp() {
-  // Generate ephemeral invite code once per session (lost on refresh by design)
-  const inviteCode = useMemo(() => generateInviteCode(), [])
+  // Persistent invite code — survives page reload, stored in localStorage
+  const inviteCode = useMemo(() => getOrCreateInviteCode(), [])
   const [isLoading, setIsLoading] = useState(true)
 
   const [incomingCall, setIncomingCall] = useState<{
@@ -24,11 +23,10 @@ function ChatApp() {
 
   const { addNotification } = useNotifications()
 
-  // Initialize socket connection with ephemeral invite code
+  // Initialize socket connection with persistent invite code
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Connect socket with ephemeral invite code (no localStorage)
         await socketService.connect(inviteCode, inviteCode)
       } catch {
         addNotification('error', 'Failed to connect to server')
@@ -44,7 +42,6 @@ function ChatApp() {
     }
   }, [inviteCode, addNotification])
 
-  // Create a user object for WebRTC based on invite code
   const dummyUser = useMemo(() => ({
     code: inviteCode,
     deviceName: inviteCode,
@@ -113,16 +110,15 @@ function ChatApp() {
 
   const handleAcceptCall = async () => {
     if (!incomingCall) return
-    
     try {
       await acceptCall(incomingCall.type, incomingCall.from)
       setIncomingCall(null)
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-          addNotification('error', 'Permission denied. Please allow access to camera/microphone.')
+          addNotification('error', 'Permission denied. Please allow camera/microphone access.')
         } else {
-          addNotification('error', 'Failed to accept call. Please check your device permissions.')
+          addNotification('error', 'Failed to accept call. Check device permissions.')
         }
       }
       setIncomingCall(null)
@@ -135,26 +131,24 @@ function ChatApp() {
     setIncomingCall(null)
   }
 
-  // Show loading screen while initializing
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">
         <div className="text-center">
-          <div className="w-16 h-16 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[var(--text-lg)] font-medium text-[var(--text-primary)]">Loading ChatWave...</p>
+          <div className="w-10 h-10 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-sm text-[var(--text-secondary)]">Connecting...</p>
         </div>
       </div>
     )
   }
 
-  // Main app interface — always show chat directly (ephemeral, no welcome screen)
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[var(--bg-primary)] transition-colors duration-200">
+      {/* Theme toggle — only top-right control */}
       <ThemeToggle />
-      <UserMenu />
-      
+
       {/* Active Call Interface */}
-      {(callState.status === 'calling' || callState.status === 'active') && 
+      {(callState.status === 'calling' || callState.status === 'active') &&
        callState.remoteUser && (
         <CallInterface
           callState={callState}
@@ -169,7 +163,12 @@ function ChatApp() {
 
       {/* Main Chat Interface (hidden during call) */}
       {callState.status === 'idle' && (
-        <MainChatLayout deviceKey={inviteCode} />
+        <MainChatLayout
+          deviceKey={inviteCode}
+          onInitiateCall={(type: CallType) => {
+            addNotification('info', `${type === 'audio' ? 'Voice' : 'Video'} call feature coming soon`)
+          }}
+        />
       )}
 
       {/* Incoming Call Modal */}
