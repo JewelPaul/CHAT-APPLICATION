@@ -146,8 +146,13 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   return { valid: true }
 }
 
-// Theme management — no localStorage, uses document class manipulation only
+// Theme management — persists to localStorage; applies 'dark' class to html element
 export function setTheme(theme: 'light' | 'dark' | 'system') {
+  try {
+    localStorage.setItem('theme', theme);
+  } catch {
+    // Ignore storage errors
+  }
   if (theme === 'system') {
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     document.documentElement.classList.toggle('dark', systemTheme === 'dark')
@@ -157,14 +162,26 @@ export function setTheme(theme: 'light' | 'dark' | 'system') {
 }
 
 export function getTheme(): 'light' | 'dark' | 'system' {
-  return 'system'
+  try {
+    const saved = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null;
+    if (saved === 'light' || saved === 'dark' || saved === 'system') return saved;
+  } catch {
+    // Ignore
+  }
+  return 'system';
 }
 
 export function initTheme() {
-  setTheme('system')
+  const theme = getTheme();
+  setTheme(theme);
 
-  // Listen for system theme changes
+  // Listen for system theme changes when in system mode
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    // Only auto-update if system theme is active (will be handled by ThemeProvider)
-  })
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'system' || !saved) setTheme('system');
+    } catch {
+      setTheme('system');
+    }
+  });
 }

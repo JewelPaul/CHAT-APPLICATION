@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { setTheme } from '../utils'
+import { setTheme, getTheme } from '../utils'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -24,10 +24,15 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  // Initialize from system preference — no localStorage
+  // Initialize from localStorage, falling back to system preference
   const getSystemIsDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches
-  const [theme, setThemeState] = useState<Theme>('system')
-  const [isDark, setIsDark] = useState(getSystemIsDark)
+  const [theme, setThemeState] = useState<Theme>(getTheme)
+  const [isDark, setIsDark] = useState(() => {
+    const saved = getTheme()
+    if (saved === 'dark') return true
+    if (saved === 'light') return false
+    return getSystemIsDark()
+  })
 
   const updateIsDark = useCallback((currentTheme: Theme) => {
     if (currentTheme === 'system') {

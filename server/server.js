@@ -169,6 +169,70 @@ io.on('connection', (socket) => {
         }
     });
 
+    // UPDATE INVITE CODE — allow user to change their code (uniqueness enforced)
+    socket.on('update-invite-code', (data) => {
+        try {
+            const oldKey = sockets.get(socket.id);
+            if (!oldKey) {
+                socket.emit('invite-code-error', { message: 'Not registered' });
+                return;
+            }
+
+            if (!data || typeof data !== 'object' || !data.newCode) {
+                socket.emit('invite-code-error', { message: 'Invalid request' });
+                return;
+            }
+
+            const newCode = data.newCode.trim().toUpperCase();
+
+            if (!validateUserCode(newCode)) {
+                socket.emit('invite-code-error', { message: 'Invalid invite code format' });
+                return;
+            }
+
+            if (newCode === oldKey) {
+                socket.emit('invite-code-updated', { newCode });
+                return;
+            }
+
+            if (users.has(newCode)) {
+                socket.emit('invite-code-error', { message: 'Invite code already in use. Please choose another.' });
+                return;
+            }
+
+            // Transfer user data to new key
+            const userData = users.get(oldKey);
+            users.delete(oldKey);
+            users.set(newCode, { ...userData, name: sanitizeMessage(data.displayName || newCode) });
+            sockets.set(socket.id, newCode);
+
+            // Update any active rooms
+            for (const [roomId, room] of chatRooms.entries()) {
+                if (room.user1 === oldKey) room.user1 = newCode;
+                if (room.user2 === oldKey) room.user2 = newCode;
+                // Notify partner of key change if applicable
+                const partnerKey = room.user1 === newCode ? room.user2 : room.user1;
+                const partner = users.get(partnerKey);
+                if (partner) {
+                    io.to(partner.socketId).emit('partner-key-changed', { oldKey, newKey: newCode, roomId });
+                }
+            }
+
+            // Update pending invites
+            if (pendingInvites.has(oldKey)) {
+                const pending = pendingInvites.get(oldKey);
+                pendingInvites.delete(oldKey);
+                pendingInvites.set(newCode, pending);
+            }
+
+            socket.emit('invite-code-updated', { newCode });
+            logger.info('Invite code updated', { oldKey, newCode, socketId: socket.id });
+        } catch (error) {
+            logger.error('Error in update-invite-code handler', { error: error.message, socketId: socket.id });
+            socket.emit('invite-code-error', { message: 'Failed to update invite code' });
+        }
+    });
+
     // CONNECTION REQUEST
     socket.on('connection-request', (data) => {
         try {
@@ -339,7 +403,9 @@ io.on('connection', (socket) => {
                 return;
             }
             
-            const sanitizedMessage = sanitizeMessage(message);
+            // Messages are E2E encrypted — relay as-is without HTML-sanitizing (which would corrupt base64)
+            // Only validate length; rendering sanitization is the client's responsibility
+            const sanitizedMessage = typeof message === 'string' ? message.slice(0, 4096) : '';
             
             const msgData = {
                 id: `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,

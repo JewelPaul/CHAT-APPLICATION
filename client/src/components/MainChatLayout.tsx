@@ -15,6 +15,7 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 interface MainChatLayoutProps {
   deviceKey: string
+  onInitiateCall?: (type: CallType) => void
 }
 
 interface ActiveChat {
@@ -30,33 +31,51 @@ interface RoomKeys {
   peerPublicKey?: string
 }
 
-export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
+export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProps) {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [messages, setMessages] = useState<StoredMessage[]>([])
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
-  // In-memory contacts (ephemeral — lost on refresh)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [activeChats, setActiveChats] = useState<Map<string, ActiveChat>>(new Map())
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null)
   const [incomingRequest, setIncomingRequest] = useState<{ fromKey: string; fromName: string } | null>(null)
-  // In-memory room encryption keys (ephemeral)
-  const [roomKeys, setRoomKeys] = useState<Map<string, RoomKeys>>(new Map())
-  // Explicit partner key → room ID mapping (avoids fragile substring matching, no re-render needed)
+  // Ref always holds latest keys — avoids stale closures in socket handlers
+  const roomKeysRef = useRef<Map<string, RoomKeys>>(new Map())
+  // Explicit partner key → room ID mapping
   const partnerToRoom = useRef<Map<string, string>>(new Map())
+  // Track encryption readiness per room
+  const [encryptionReady, setEncryptionReady] = useState<Map<string, boolean>>(new Map())
+  const encryptionReadyRef = useRef<Map<string, boolean>>(new Map())
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const { addNotification } = useNotifications()
 
-  // Set up socket listeners
+  // Helper: update roomKeys in ref and update encryptionReady state
+  const updateRoomKeys = useCallback((updater: (prev: Map<string, RoomKeys>) => Map<string, RoomKeys>) => {
+    const next = updater(roomKeysRef.current)
+    roomKeysRef.current = next
+    // Update encryption readiness state
+    for (const [roomId, keys] of next.entries()) {
+      const ready = !!(keys.privateKey && keys.peerPublicKey)
+      if (encryptionReadyRef.current.get(roomId) !== ready) {
+        encryptionReadyRef.current.set(roomId, ready)
+        setEncryptionReady(prevReady => {
+          const r = new Map(prevReady)
+          r.set(roomId, ready)
+          return r
+        })
+      }
+    }
+  }, [])
+
+  // Set up socket listeners — no roomKeys in dependency array (use ref instead)
   useEffect(() => {
-    // Handle incoming connection request
     const handleIncomingRequest = (data: { fromKey: string; fromName: string }) => {
       setIncomingRequest(data)
       addNotification('info', `Connection request from ${data.fromName}`)
     }
 
-    // Handle connection established — generate key pair and start key exchange
     const handleConnectionEstablished = async (data: { partnerKey: string; partnerName: string; roomId: string }) => {
-      // Create in-memory contact (not persisted)
       const newContact: Contact = {
         id: data.partnerKey,
         username: data.partnerName,
@@ -75,27 +94,26 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
       partnerToRoom.current.set(data.partnerKey, data.roomId)
       setSelectedContact(newContact)
       setCurrentRoomId(data.roomId)
+      setIsMobileSidebarOpen(false)
 
       // Generate ECDH key pair for this room session
       try {
         const keys = await generateKeyPair()
-        setRoomKeys(prev => {
+        updateRoomKeys(prev => {
           const next = new Map(prev)
           next.set(data.roomId, { privateKey: keys.privateKey, publicKey: keys.publicKey })
           return next
         })
-        // Send our public key to partner
         socketService.sendPublicKey(data.roomId, keys.publicKey)
       } catch {
-        // Key generation failed — chat still works but without encryption
+        // Key generation failed — no encryption for this session
       }
 
       addNotification('success', `Connected with ${data.partnerName}`)
     }
 
-    // Handle key exchange from partner
-    const handleKeyExchange = async (data: { fromKey: string; publicKey: string; roomId: string }) => {
-      setRoomKeys(prev => {
+    const handleKeyExchange = (data: { fromKey: string; publicKey: string; roomId: string }) => {
+      updateRoomKeys(prev => {
         const existing = prev.get(data.roomId)
         if (!existing) return prev
         const next = new Map(prev)
@@ -104,108 +122,93 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
       })
     }
 
-    // Handle new message
-    const handleNewMessage = async (data: { id: string; fromKey: string; content: string; timestamp: number; roomId: string }) => {
+    const handleNewMessage = async (msgData: { id: string; fromKey: string; content: string; timestamp: number; roomId: string }) => {
       // Don't add message if it's from us (already added when sending)
-      if (data.fromKey === deviceKey) {
-        return
-      }
+      if (msgData.fromKey === deviceKey) return
 
-      // Attempt to decrypt if we have keys for this room
-      let content = data.content
-      const keys = roomKeys.get(data.roomId)
-      if (keys?.privateKey && keys.peerPublicKey) {
+      // Helper: check if content looks like an encrypted payload (JSON with encrypted + iv fields)
+      const isEncryptedPayload = (raw: string): boolean => {
         try {
-          const parsed: unknown = JSON.parse(data.content)
-          if (
-            parsed !== null &&
-            typeof parsed === 'object' &&
-            'encrypted' in parsed &&
-            'iv' in parsed &&
-            typeof (parsed as { encrypted: unknown }).encrypted === 'string' &&
-            typeof (parsed as { iv: unknown }).iv === 'string'
-          ) {
-            const { encrypted, iv } = parsed as { encrypted: string; iv: string }
-            content = await decryptMessage(encrypted, iv, keys.privateKey, keys.peerPublicKey)
-          }
+          const p = JSON.parse(raw)
+          return p !== null && typeof p === 'object' && typeof p.encrypted === 'string' && typeof p.iv === 'string'
         } catch {
-          // Not encrypted or decryption failed — use as-is
+          return false
         }
       }
 
+      // Use ref to get latest keys — avoids stale closure
+      let content = msgData.content
+      const keys = roomKeysRef.current.get(msgData.roomId)
+      if (keys?.privateKey && keys.peerPublicKey) {
+        if (isEncryptedPayload(msgData.content)) {
+          try {
+            const parsed = JSON.parse(msgData.content) as { encrypted: string; iv: string }
+            content = await decryptMessage(parsed.encrypted, parsed.iv, keys.privateKey, keys.peerPublicKey)
+          } catch {
+            content = '⚠️ Message could not be decrypted. Keys may not be synchronized.'
+          }
+        }
+      } else if (isEncryptedPayload(msgData.content)) {
+        // Encrypted payload received before key exchange completed
+        content = '⚠️ Message could not be decrypted. Keys may not be synchronized.'
+      }
+
       const newMessage: StoredMessage = {
-        id: data.id,
-        chatId: data.fromKey,
-        senderId: data.fromKey,
+        id: msgData.id,
+        chatId: msgData.fromKey,
+        senderId: msgData.fromKey,
         recipientId: deviceKey,
         content,
         type: 'text',
-        timestamp: new Date(data.timestamp),
+        timestamp: new Date(msgData.timestamp),
         status: 'delivered'
       }
 
-      // Update messages if this contact is currently selected
       setSelectedContact(prev => {
-        if (prev?.id === data.fromKey) {
+        if (prev?.id === msgData.fromKey) {
           setMessages(msgs => [...msgs, newMessage])
         }
         return prev
       })
 
-      // Update contact's last message
       setContacts(prev => prev.map(c =>
-        c.id === data.fromKey
-          ? { ...c, lastMessage: content, lastMessageTime: new Date(data.timestamp) }
+        c.id === msgData.fromKey
+          ? { ...c, lastMessage: content, lastMessageTime: new Date(msgData.timestamp) }
           : c
       ))
     }
 
-    // Handle typing indicators
     const handleUserTyping = (data: { userKey: string }) => {
       setSelectedContact(prev => {
-        if (prev?.id === data.userKey) {
-          setIsTyping(true)
-        }
+        if (prev?.id === data.userKey) setIsTyping(true)
         return prev
       })
     }
 
     const handleUserStoppedTyping = (data: { userKey: string }) => {
       setSelectedContact(prev => {
-        if (prev?.id === data.userKey) {
-          setIsTyping(false)
-        }
+        if (prev?.id === data.userKey) setIsTyping(false)
         return prev
       })
     }
 
-    // Handle user not found
     const handleUserNotFound = (data: { targetKey: string }) => {
       addNotification('error', `User ${data.targetKey} not found or offline`)
     }
 
-    // Handle request rejected
     const handleRequestRejected = () => {
       addNotification('warning', 'Connection request was declined')
     }
 
-    // Handle partner disconnect — destroy room and keys
     const handleUserOffline = (data: { deviceKey: string }) => {
       const key = data.deviceKey
       setContacts(prev => prev.filter(c => c.id !== key))
-      setActiveChats(prev => {
-        const next = new Map(prev)
-        next.delete(key)
-        return next
-      })
-      // Use explicit partner→room mapping for precise key cleanup
+      setActiveChats(prev => { const next = new Map(prev); next.delete(key); return next })
       const roomIdForPartner = partnerToRoom.current.get(key)
       if (roomIdForPartner) {
-        setRoomKeys(keys => {
-          const next = new Map(keys)
-          next.delete(roomIdForPartner)
-          return next
-        })
+        updateRoomKeys(keys => { const next = new Map(keys); next.delete(roomIdForPartner); return next })
+        setEncryptionReady(prev => { const next = new Map(prev); next.delete(roomIdForPartner); return next })
+        encryptionReadyRef.current.delete(roomIdForPartner)
       }
       partnerToRoom.current.delete(key)
       setSelectedContact(prev => {
@@ -219,7 +222,6 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
       })
     }
 
-    // Register listeners
     socketService.on('incoming-request', handleIncomingRequest)
     socketService.on('connection-established', handleConnectionEstablished)
     socketService.on('key-exchange', handleKeyExchange)
@@ -241,15 +243,14 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
       socketService.off('request-rejected', handleRequestRejected)
       socketService.off('user-offline', handleUserOffline)
     }
-  }, [deviceKey, addNotification, roomKeys])
+    // deviceKey and addNotification are stable; updateRoomKeys is stable (useCallback)
+    // roomKeysRef is always current — no need to re-register on every key change
+  }, [deviceKey, addNotification, updateRoomKeys])
 
-  // Update messages and room ID when selected contact changes
   useEffect(() => {
     if (selectedContact) {
       const activeChat = activeChats.get(selectedContact.id)
-      if (activeChat) {
-        setCurrentRoomId(activeChat.roomId)
-      }
+      if (activeChat) setCurrentRoomId(activeChat.roomId)
     } else {
       setMessages([])
       setCurrentRoomId(null)
@@ -258,19 +259,14 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
 
   const handleSelectContact = useCallback((contact: Contact) => {
     setSelectedContact(contact)
-    // Load messages for this contact from in-memory state
-    // Messages are already in React state, no DB needed
+    setIsMobileSidebarOpen(false)
   }, [])
 
-  const handleNewChat = () => {
-    setIsAddUserModalOpen(true)
-  }
+  const handleNewChat = () => setIsAddUserModalOpen(true)
 
   const handleRequestSent = (targetKey: string) => {
     addNotification('info', `Connection request sent to ${targetKey}`)
-    setTimeout(() => {
-      setIsAddUserModalOpen(false)
-    }, 1500)
+    setTimeout(() => setIsAddUserModalOpen(false), 1500)
   }
 
   const handleAcceptRequest = () => {
@@ -292,8 +288,6 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
       addNotification('error', 'No active chat session')
       return
     }
-
-    // Validate message length (2KB max)
     if (message.length > 2048) {
       addNotification('error', 'Message too long (max 2KB)')
       return
@@ -302,19 +296,17 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
     try {
       const msgId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
 
-      // Attempt end-to-end encryption
       let contentToSend = message
-      const keys = roomKeys.get(currentRoomId)
+      const keys = roomKeysRef.current.get(currentRoomId)
       if (keys?.privateKey && keys.peerPublicKey) {
         try {
           const encrypted = await encryptMessage(message, keys.privateKey, keys.peerPublicKey)
           contentToSend = JSON.stringify(encrypted)
         } catch {
-          // Encryption failed — send plaintext (still secure via TLS)
+          // Encryption failed — send plaintext (still secured by TLS)
         }
       }
 
-      // Add to local messages immediately (in-memory only)
       const newMessage: StoredMessage = {
         id: msgId,
         chatId: selectedContact.id,
@@ -327,67 +319,40 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
       }
 
       setMessages(prev => [...prev, newMessage])
-
-      // Update contact's last message
       setContacts(prev => prev.map(c =>
         c.id === selectedContact.id
           ? { ...c, lastMessage: message, lastMessageTime: new Date() }
           : c
       ))
 
-      // Send via socket to room
       socketService.sendMessage(currentRoomId, contentToSend)
 
-      // Update message status
       setTimeout(() => {
-        setMessages(prev =>
-          prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m)
-        )
+        setMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m))
       }, 300)
     } catch {
       addNotification('error', 'Failed to send message')
     }
   }
 
-  const handleTypingStart = () => {
-    if (currentRoomId) {
-      socketService.startTyping(currentRoomId)
-    }
-  }
-
-  const handleTypingStop = () => {
-    if (currentRoomId) {
-      socketService.stopTyping(currentRoomId)
-    }
-  }
-
-  const handleSettings = () => {
-    addNotification('info', 'Settings feature coming soon!')
-  }
-
-  const handleInitiateCall = (type: CallType) => {
-    addNotification('info', `${type === 'audio' ? 'Voice' : 'Video'} call feature coming soon`)
-  }
+  const handleTypingStart = () => { if (currentRoomId) socketService.startTyping(currentRoomId) }
+  const handleTypingStop = () => { if (currentRoomId) socketService.stopTyping(currentRoomId) }
 
   const handleFileSelect = async (file: File) => {
     if (!selectedContact || !currentRoomId) {
       addNotification('error', 'No active chat session')
       return
     }
-
-    // Check file size limit
     if (file.size > MAX_FILE_SIZE_BYTES) {
       addNotification('error', `File size must be less than ${MAX_FILE_SIZE_MB}MB`)
       return
     }
 
     try {
-      // Convert file to base64
       const reader = new FileReader()
       reader.onload = async () => {
         const base64Data = reader.result as string
         const base64Content = base64Data.split(',')[1]
-
         const msgId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
         const newMessage: StoredMessage = {
           id: msgId,
@@ -403,17 +368,12 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
           filename: file.name,
           size: file.size
         }
-
         setMessages(prev => [...prev, newMessage])
-
-        // Update contact's last message
         setContacts(prev => prev.map(c =>
           c.id === selectedContact.id
             ? { ...c, lastMessage: `Sent ${file.type.startsWith('image/') ? 'an image' : 'a file'}`, lastMessageTime: new Date() }
             : c
         ))
-
-        // Send via socket
         socketService.emit('media-upload', {
           to: selectedContact.id,
           roomId: currentRoomId,
@@ -421,38 +381,48 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
           filename: file.name,
           mimeType: file.type
         })
-
         addNotification('success', 'File sent successfully')
-
-        // Update message status
         setTimeout(() => {
-          setMessages(prev =>
-            prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m)
-          )
+          setMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m))
         }, 300)
       }
-
-      reader.onerror = () => {
-        addNotification('error', 'Failed to read file')
-      }
-
+      reader.onerror = () => addNotification('error', 'Failed to read file')
       reader.readAsDataURL(file)
     } catch {
       addNotification('error', 'Failed to send file')
     }
   }
 
+  const isEncryptionReady = currentRoomId ? (encryptionReady.get(currentRoomId) ?? false) : false
+
   return (
-    <div className="flex h-screen bg-[var(--bg-primary)]">
+    <div className="flex h-screen bg-[var(--bg-primary)] overflow-hidden">
+      {/* Mobile overlay */}
+      {isMobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <Sidebar
-        deviceKey={deviceKey}
-        contacts={contacts}
-        selectedContactId={selectedContact?.id}
-        onSelectContact={handleSelectContact}
-        onNewChat={handleNewChat}
-        onSettings={handleSettings}
-      />
+      <div className={`
+        fixed lg:relative inset-y-0 left-0 z-30
+        transform transition-transform duration-300 ease-in-out lg:transform-none
+        ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        flex-shrink-0
+      `}>
+        <Sidebar
+          deviceKey={deviceKey}
+          contacts={contacts}
+          selectedContactId={selectedContact?.id}
+          onSelectContact={handleSelectContact}
+          onNewChat={handleNewChat}
+          onInitiateCall={onInitiateCall}
+          currentRoomId={currentRoomId}
+          isEncryptionReady={isEncryptionReady}
+        />
+      </div>
 
       {/* Chat Area */}
       <ChatArea
@@ -463,8 +433,9 @@ export function MainChatLayout({ deviceKey }: MainChatLayoutProps) {
         onSendMessage={handleSendMessage}
         onTypingStart={handleTypingStart}
         onTypingStop={handleTypingStop}
-        onInitiateCall={handleInitiateCall}
         onFileSelect={handleFileSelect}
+        isEncryptionReady={isEncryptionReady}
+        onOpenSidebar={() => setIsMobileSidebarOpen(true)}
       />
 
       {/* Add User Modal */}
