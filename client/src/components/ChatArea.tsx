@@ -40,6 +40,13 @@ export function ChatArea({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Cleanup typing timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeout) clearTimeout(typingTimeout)
+    }
+  }, [typingTimeout])
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessageInput(e.target.value)
     onTypingStart()

@@ -137,27 +137,27 @@ export function AddUserModal({
       onClick={handleClose}
     >
       <div 
-        className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl"
+        className="bg-[var(--bg-secondary)] rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl border border-[var(--border)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-            <MessageCircle className="w-6 h-6" />
+          <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
+            <MessageCircle className="w-5 h-5" />
             Start New Chat
           </h2>
           <button 
             onClick={handleClose}
-            className="text-gray-400 hover:text-white text-2xl transition-colors"
+            className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
             aria-label="Close"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
         
         {/* Content */}
-        <p className="text-gray-300 mb-4">
-          Enter the user's unique key to start chatting:
+        <p className="text-sm text-[var(--text-secondary)] mb-4">
+          Enter the invite code of the person you want to chat with:
         </p>
         
         {/* Input */}
@@ -167,8 +167,8 @@ export function AddUserModal({
             value={userKey}
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder="ABCDE-1234"
-            className="w-full bg-[#0a0a0f] border border-gray-700 rounded-xl px-4 py-3 text-white 
-                     placeholder-gray-500 focus:outline-none focus:border-indigo-500 font-mono text-lg
+            className="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-3 text-[var(--text-primary)]
+                     placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] font-mono text-base
                      transition-colors tracking-widest uppercase"
             maxLength={10}
             disabled={state === 'sending' || state === 'waiting'}
@@ -181,31 +181,31 @@ export function AddUserModal({
           )}
         </div>
         
-        <p className="text-gray-500 text-sm mt-2">
+        <p className="text-xs text-[var(--text-secondary)] mt-2">
           Enter the 10-character invite code shared by your contact (e.g. JWELL-0291)
         </p>
         
         {/* Error Message */}
         {state === 'error' && errorMessage && (
-          <div className="mt-4 p-3 rounded-lg bg-red-500/20 border border-red-500/30 flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-red-300 text-sm">{errorMessage}</p>
+          <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-red-500 text-sm">{errorMessage}</p>
           </div>
         )}
         
         {/* Not Found Message */}
         {state === 'not-found' && (
-          <div className="mt-4 p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/30 flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-            <p className="text-yellow-300 text-sm">{errorMessage}</p>
+          <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-amber-600 dark:text-amber-400 text-sm">{errorMessage}</p>
           </div>
         )}
         
         {/* Waiting State */}
         {state === 'waiting' && (
-          <div className="mt-4 p-3 rounded-lg bg-green-500/20 border border-green-500/30 flex items-start gap-2">
-            <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-            <p className="text-green-300 text-sm">
+          <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30 flex items-start gap-2">
+            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+            <p className="text-green-600 dark:text-green-400 text-sm">
               Request sent! Waiting for them to accept...
             </p>
           </div>
@@ -215,36 +215,36 @@ export function AddUserModal({
         <button
           onClick={handleSubmit}
           disabled={!isValidFormat(userKey) || state === 'sending' || state === 'waiting'}
-          className="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 
-                     disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl 
-                     transition-colors flex items-center justify-center gap-2"
+          className="w-full mt-5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40
+                     disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-xl 
+                     transition-colors flex items-center justify-center gap-2 text-sm"
         >
           {state === 'sending' && (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
               <span>Sending...</span>
             </>
           )}
           {state === 'waiting' && (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
               <span>Waiting for response...</span>
             </>
           )}
           {(state === 'input' || state === 'error' || state === 'not-found') && (
             <>
-              <MessageCircle className="w-5 h-5" />
+              <MessageCircle className="w-4 h-4" />
               <span>Send Chat Request</span>
             </>
           )}
         </button>
         
         {/* Help Text */}
-        <div className="mt-6 pt-4 border-t border-gray-700">
+        <div className="mt-5 pt-4 border-t border-[var(--border)]">
           <div className="flex items-start gap-2">
-            <Info className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-            <p className="text-gray-400 text-sm">
-              Ask your friend to share their key with you. You can find your key at the top of the sidebar.
+            <Info className="w-4 h-4 text-[var(--text-secondary)] flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-[var(--text-secondary)]">
+              Ask your friend to share their invite code. Find yours at the top of the sidebar.
             </p>
           </div>
         </div>

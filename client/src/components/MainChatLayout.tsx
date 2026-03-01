@@ -122,57 +122,58 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
       })
     }
 
-    const handleNewMessage = async (data: { id: string; fromKey: string; content: string; timestamp: number; roomId: string }) => {
+    const handleNewMessage = async (msgData: { id: string; fromKey: string; content: string; timestamp: number; roomId: string }) => {
       // Don't add message if it's from us (already added when sending)
-      if (data.fromKey === deviceKey) return
+      if (msgData.fromKey === deviceKey) return
+
+      // Helper: check if content looks like an encrypted payload (JSON with encrypted + iv fields)
+      const isEncryptedPayload = (raw: string): boolean => {
+        try {
+          const p = JSON.parse(raw)
+          return p !== null && typeof p === 'object' && typeof p.encrypted === 'string' && typeof p.iv === 'string'
+        } catch {
+          return false
+        }
+      }
 
       // Use ref to get latest keys — avoids stale closure
-      let content = data.content
-      const keys = roomKeysRef.current.get(data.roomId)
+      let content = msgData.content
+      const keys = roomKeysRef.current.get(msgData.roomId)
       if (keys?.privateKey && keys.peerPublicKey) {
-        try {
-          const parsed: unknown = JSON.parse(data.content)
-          if (
-            parsed !== null &&
-            typeof parsed === 'object' &&
-            'encrypted' in parsed &&
-            'iv' in parsed &&
-            typeof (parsed as { encrypted: unknown }).encrypted === 'string' &&
-            typeof (parsed as { iv: unknown }).iv === 'string'
-          ) {
-            const { encrypted, iv } = parsed as { encrypted: string; iv: string }
-            content = await decryptMessage(encrypted, iv, keys.privateKey, keys.peerPublicKey)
+        if (isEncryptedPayload(msgData.content)) {
+          try {
+            const parsed = JSON.parse(msgData.content) as { encrypted: string; iv: string }
+            content = await decryptMessage(parsed.encrypted, parsed.iv, keys.privateKey, keys.peerPublicKey)
+          } catch {
+            content = '⚠️ Message could not be decrypted. Keys may not be synchronized.'
           }
-        } catch {
-          // Decryption failed — show error indicator instead of raw JSON
-          content = '⚠️ Decryption failed'
         }
-      } else if (data.content.includes('"encrypted"') && data.content.includes('"iv"')) {
-        // Looks like encrypted JSON but we don't have keys yet — show error
-        content = '⚠️ Decryption failed'
+      } else if (isEncryptedPayload(msgData.content)) {
+        // Encrypted payload received before key exchange completed
+        content = '⚠️ Message could not be decrypted. Keys may not be synchronized.'
       }
 
       const newMessage: StoredMessage = {
-        id: data.id,
-        chatId: data.fromKey,
-        senderId: data.fromKey,
+        id: msgData.id,
+        chatId: msgData.fromKey,
+        senderId: msgData.fromKey,
         recipientId: deviceKey,
         content,
         type: 'text',
-        timestamp: new Date(data.timestamp),
+        timestamp: new Date(msgData.timestamp),
         status: 'delivered'
       }
 
       setSelectedContact(prev => {
-        if (prev?.id === data.fromKey) {
+        if (prev?.id === msgData.fromKey) {
           setMessages(msgs => [...msgs, newMessage])
         }
         return prev
       })
 
       setContacts(prev => prev.map(c =>
-        c.id === data.fromKey
-          ? { ...c, lastMessage: content, lastMessageTime: new Date(data.timestamp) }
+        c.id === msgData.fromKey
+          ? { ...c, lastMessage: content, lastMessageTime: new Date(msgData.timestamp) }
           : c
       ))
     }
