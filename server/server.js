@@ -715,7 +715,7 @@ io.on('connection', (socket) => {
             // Notify caller that call was accepted
             io.to(callerUser.socketId).emit('call-accepted', {
                 from: accepterCode,
-                deviceName: users.get(accepterCode).deviceName
+                deviceName: users.get(accepterCode)?.name ?? accepterCode
             });
 
             logger.info('Call accepted', { caller: from, accepter: accepterCode });

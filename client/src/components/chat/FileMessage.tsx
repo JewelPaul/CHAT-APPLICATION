@@ -7,7 +7,7 @@ interface FileMessageProps {
   onDownload?: () => void
 }
 
-export function FileMessage({ filename, size, mimeType, onDownload }: FileMessageProps) {
+export function FileMessage({ filename, size, onDownload }: FileMessageProps) {
   const formatFileSize = (bytes?: number): string => {
     if (!bytes) return 'Unknown size'
     if (bytes < 1024) return `${bytes} B`

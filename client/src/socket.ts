@@ -27,8 +27,8 @@ class SocketService {
         resolve(this.socket!)
       })
 
-      this.socket.on('error', () => {
-        // Handle socket errors silently
+      this.socket.on('error', (err) => {
+        reject(err)
       })
 
       this.socket.on('disconnect', () => {
@@ -107,11 +107,13 @@ class SocketService {
   }
 
   // Event listeners
-  on(event: string, callback: (...args: unknown[]) => void): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(event: string, callback: (...args: any[]) => void): void {
     this.socket?.on(event, callback)
   }
 
-  off(event: string, callback?: (...args: unknown[]) => void): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  off(event: string, callback?: (...args: any[]) => void): void {
     if (callback) {
       this.socket?.off(event, callback)
     } else {

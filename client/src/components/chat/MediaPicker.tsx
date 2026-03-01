@@ -1,4 +1,4 @@
-import { useRef, ChangeEvent, useState } from 'react'
+import { useRef, type ChangeEvent, useState } from 'react'
 import { Paperclip, Image, X } from 'lucide-react'
 
 interface MediaPickerProps {
