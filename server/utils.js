@@ -115,47 +115,37 @@ function validateMediaUpload(fileData) {
     return { valid: false, error: 'Missing required file data' };
   }
   
-  // Validate mime type
+  // Strict MIME type whitelist — no generic files, no documents
   const allowedMimeTypes = [
-    // Images
-    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
-    // Videos (short clips)
-    'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo',
-    // Audio
-    'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/aac',
-    // Documents
-    'application/pdf', 'text/plain', 'text/csv',
-    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+    'video/mp4', 'video/webm',
+    'audio/webm'
   ];
   
   if (!allowedMimeTypes.includes(mimeType)) {
-    return { valid: false, error: `File type ${mimeType} not supported. Allowed: images, short videos, audio, PDF, and common documents.` };
+    return { valid: false, error: `File type "${mimeType}" is not allowed. Only images (JPEG/PNG/WebP/GIF), videos (MP4/WebM), and voice messages (audio/webm) are supported.` };
   }
-  
-  // Calculate size (base64 encoded size)
-  const sizeInBytes = calculateBase64Size(mediaData);
   
   // Size limits based on type
   const maxSizes = {
-    image: 5 * 1024 * 1024,      // 5MB for images
-    video: 10 * 1024 * 1024,     // 10MB for videos (short clips only)
-    audio: 5 * 1024 * 1024,      // 5MB for audio
-    document: 10 * 1024 * 1024   // 10MB for documents
+    image: 3 * 1024 * 1024,   // 3MB for images
+    video: 8 * 1024 * 1024,   // 8MB for short videos
+    audio: 8 * 1024 * 1024    // 8MB for voice messages
   };
   
-  let maxSize = maxSizes.document; // Default
-  if (mimeType.startsWith('image/')) {
-    maxSize = maxSizes.image;
-  } else if (mimeType.startsWith('video/')) {
+  let maxSize = maxSizes.image; // Default to most restrictive
+  if (mimeType.startsWith('video/')) {
     maxSize = maxSizes.video;
   } else if (mimeType.startsWith('audio/')) {
     maxSize = maxSizes.audio;
   }
+
+  // Calculate approximate decoded size from base64 payload
+  const sizeInBytes = calculateBase64Size(mediaData);
   
   if (sizeInBytes > maxSize) {
-    const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(1);
-    return { valid: false, error: `File size exceeds ${maxSizeMB}MB limit` };
+    const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(0);
+    return { valid: false, error: `File size exceeds ${maxSizeMB}MB limit for ${mimeType}` };
   }
   
   // Validate filename

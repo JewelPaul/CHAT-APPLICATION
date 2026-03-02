@@ -51,6 +51,7 @@ export interface StoredMessage {
   replyTo?: string;
   reactions?: Array<{ emoji: string; userId: string }>;
   mediaData?: string;
+  objectUrl?: string; // ephemeral object URL for decrypted media (revoked on cleanup)
   mimeType?: string;
   filename?: string;
   size?: number;

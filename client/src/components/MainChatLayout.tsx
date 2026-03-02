@@ -4,12 +4,17 @@ import { ChatArea } from './ChatArea'
 import { AddUserModal } from './AddUserModal'
 import socketService from '../socket'
 import { useNotifications } from './NotificationProvider'
-import { generateKeyPair, encryptMessage, decryptMessage } from '../encryption'
+import { generateKeyPair, encryptMessage, decryptMessage, encryptBinary, decryptBinary } from '../encryption'
+import { ALLOWED_IMAGE_TYPES, ALLOWED_VIDEO_TYPES, MAX_IMAGE_SIZE, MAX_VIDEO_SIZE } from './chat/MediaPicker'
 import type { Contact, StoredMessage } from '../db'
 import type { CallType } from '../types'
 
+// Strict allowed MIME types — mirrored from server/utils.js
+const ALLOWED_MIME_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES, 'audio/webm']
+const MAX_VOICE_SIZE = 8 * 1024 * 1024  // 8MB
+
 // Configuration constants
-const MAX_FILE_SIZE_MB = 10
+const MAX_FILE_SIZE_MB = 8
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 interface MainChatLayoutProps {
@@ -206,7 +211,12 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
       partnerToRoom.current.delete(key)
       setSelectedContact(prev => {
         if (prev?.id === key) {
-          setMessages([])
+          // Revoke object URLs outside setState to avoid mutating inside reducer
+          setMessages(msgs => {
+            const urls = msgs.map(m => m.objectUrl).filter(Boolean) as string[]
+            urls.forEach(url => URL.revokeObjectURL(url))
+            return []
+          })
           setCurrentRoomId(null)
           addNotification('warning', 'Chat partner disconnected — session ended')
           return null
@@ -215,9 +225,92 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
       })
     }
 
+    // Receive encrypted media (image/video/voice) from partner or echoed back to sender
+    const handleMediaMessage = async (msgData: {
+      id: string
+      from: string
+      mimeType: string
+      size: number
+      filename?: string
+      timestamp: number
+      encrypted?: string
+      iv?: string
+      mediaData?: string
+      roomId?: string
+    }) => {
+      // Skip messages from ourselves (already added locally)
+      if (msgData.from === deviceKey) return
+
+      let objectUrl: string | undefined
+      let mediaData: string | undefined
+
+      const roomId = msgData.roomId || partnerToRoom.current.get(msgData.from)
+      const keys = roomId ? roomKeysRef.current.get(roomId) : undefined
+
+      if (msgData.encrypted && msgData.iv) {
+        // Encrypted binary media — decrypt using session key
+        if (keys?.privateKey && keys.peerPublicKey) {
+          try {
+            const decrypted = await decryptBinary(msgData.encrypted, msgData.iv, keys.privateKey, keys.peerPublicKey)
+            const blob = new Blob([decrypted], { type: msgData.mimeType })
+            objectUrl = URL.createObjectURL(blob)
+          } catch {
+            addNotification('error', 'Media could not be decrypted')
+            return
+          }
+        } else {
+          addNotification('error', 'Cannot decrypt media — keys not ready')
+          return
+        }
+      } else if (msgData.mediaData) {
+        // Unencrypted fallback (legacy or before key exchange)
+        mediaData = msgData.mediaData
+      }
+
+      const newMessage: StoredMessage = {
+        id: msgData.id || `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        chatId: msgData.from,
+        senderId: msgData.from,
+        recipientId: deviceKey,
+        content: '',
+        type: 'media',
+        timestamp: new Date(msgData.timestamp || Date.now()),
+        status: 'delivered',
+        mimeType: msgData.mimeType,
+        filename: msgData.filename,
+        size: msgData.size,
+        objectUrl,
+        mediaData
+      }
+
+      setSelectedContact(prev => {
+        if (prev?.id === msgData.from) {
+          setMessages(msgs => [...msgs, newMessage])
+        }
+        return prev
+      })
+
+      setContacts(prev => prev.map(c =>
+        c.id === msgData.from
+          ? {
+              ...c,
+              lastMessage: msgData.mimeType?.startsWith('image/') ? '📷 Image' :
+                           msgData.mimeType?.startsWith('video/') ? '🎥 Video' : '🎙 Voice message',
+              lastMessageTime: new Date(msgData.timestamp || Date.now())
+            }
+          : c
+      ))
+    }
+
+    const handleMediaError = (data: { error: string }) => {
+      addNotification('error', data.error || 'Failed to send media')
+    }
+
     socketService.on('connection-established', handleConnectionEstablished)
     socketService.on('key-exchange', handleKeyExchange)
     socketService.on('new-message', handleNewMessage)
+    socketService.on('media-message', handleMediaMessage)
+    socketService.on('media-error', handleMediaError)
     socketService.on('user-typing', handleUserTyping)
     socketService.on('user-stopped-typing', handleUserStoppedTyping)
     socketService.on('user-not-found', handleUserNotFound)
@@ -228,6 +321,8 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
       socketService.off('connection-established', handleConnectionEstablished)
       socketService.off('key-exchange', handleKeyExchange)
       socketService.off('new-message', handleNewMessage)
+      socketService.off('media-message', handleMediaMessage)
+      socketService.off('media-error', handleMediaError)
       socketService.off('user-typing', handleUserTyping)
       socketService.off('user-stopped-typing', handleUserStoppedTyping)
       socketService.off('user-not-found', handleUserNotFound)
@@ -243,7 +338,12 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
       const activeChat = activeChats.get(selectedContact.id)
       if (activeChat) setCurrentRoomId(activeChat.roomId)
     } else {
-      setMessages([])
+      // Revoke any object URLs to free memory when leaving a chat
+      setMessages(prev => {
+        const urls = prev.map(m => m.objectUrl).filter(Boolean) as string[]
+        urls.forEach(url => URL.revokeObjectURL(url))
+        return []
+      })
       setCurrentRoomId(null)
     }
   }, [selectedContact, activeChats])
@@ -315,60 +415,130 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
   const handleTypingStart = () => { if (currentRoomId) socketService.startTyping(currentRoomId) }
   const handleTypingStop = () => { if (currentRoomId) socketService.stopTyping(currentRoomId) }
 
-  const handleFileSelect = async (file: File) => {
+  // Shared helper: encrypt a binary blob and emit via media-upload, add message locally
+  const sendMediaBlob = useCallback(async (blob: Blob, mimeType: string, filename: string) => {
     if (!selectedContact || !currentRoomId) {
       addNotification('error', 'No active chat session')
+      return
+    }
+
+    // Validate MIME type
+    if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+      addNotification('error', `File type "${mimeType}" is not allowed`)
+      return
+    }
+
+    // Validate size
+    const maxSize = mimeType.startsWith('image/') ? MAX_IMAGE_SIZE
+                  : mimeType.startsWith('video/') ? MAX_VIDEO_SIZE
+                  : MAX_VOICE_SIZE
+    if (blob.size > maxSize) {
+      const maxMB = Math.round(maxSize / (1024 * 1024))
+      addNotification('error', `File too large (max ${maxMB}MB for this type)`)
+      return
+    }
+
+    try {
+      const arrayBuffer = await blob.arrayBuffer()
+      const keys = roomKeysRef.current.get(currentRoomId)
+      const msgId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+
+      // Create local object URL for immediate display
+      const localBlob = new Blob([arrayBuffer], { type: mimeType })
+      const objectUrl = URL.createObjectURL(localBlob)
+
+      const newMessage: StoredMessage = {
+        id: msgId,
+        chatId: selectedContact.id,
+        senderId: deviceKey,
+        recipientId: selectedContact.id,
+        content: '',
+        type: 'media',
+        timestamp: new Date(),
+        status: 'sending',
+        mimeType,
+        filename,
+        size: blob.size,
+        objectUrl
+      }
+
+      setMessages(prev => [...prev, newMessage])
+      setContacts(prev => prev.map(c =>
+        c.id === selectedContact.id
+          ? {
+              ...c,
+              lastMessage: mimeType.startsWith('image/') ? '📷 Image' :
+                           mimeType.startsWith('video/') ? '🎥 Video' : '🎙 Voice message',
+              lastMessageTime: new Date()
+            }
+          : c
+      ))
+
+      let payload: Record<string, unknown>
+
+      if (keys?.privateKey && keys.peerPublicKey) {
+        // Encrypt binary data using shared session key
+        const { encrypted, iv } = await encryptBinary(arrayBuffer, keys.privateKey, keys.peerPublicKey)
+        payload = {
+          to: selectedContact.id,
+          roomId: currentRoomId,
+          encrypted,
+          iv,
+          // mediaData is set to the encrypted data so server can validate payload size
+          mediaData: encrypted,
+          mimeType,
+          filename,
+          size: blob.size
+        }
+      } else {
+        // No encryption key yet — send as plain base64 (best-effort)
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => {
+            const result = reader.result as string
+            resolve(result.split(',')[1])
+          }
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
+        payload = {
+          to: selectedContact.id,
+          roomId: currentRoomId,
+          mediaData: base64,
+          mimeType,
+          filename,
+          size: blob.size
+        }
+      }
+
+      socketService.emit('media-upload', payload)
+
+      setTimeout(() => {
+        setMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m))
+      }, 300)
+    } catch {
+      addNotification('error', 'Failed to send media')
+    }
+  }, [selectedContact, currentRoomId, deviceKey, addNotification])
+
+  const handleFileSelect = useCallback(async (file: File) => {
+    // Strict client-side MIME validation
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      addNotification('error', `File type "${file.type}" is not allowed. Only images (JPEG/PNG/WebP/GIF) and videos (MP4/WebM) are supported.`)
       return
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
       addNotification('error', `File size must be less than ${MAX_FILE_SIZE_MB}MB`)
       return
     }
+    await sendMediaBlob(file, file.type, file.name)
+  }, [sendMediaBlob, addNotification])
 
-    try {
-      const reader = new FileReader()
-      reader.onload = async () => {
-        const base64Data = reader.result as string
-        const base64Content = base64Data.split(',')[1]
-        const msgId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
-        const newMessage: StoredMessage = {
-          id: msgId,
-          chatId: selectedContact.id,
-          senderId: deviceKey,
-          recipientId: selectedContact.id,
-          content: file.name,
-          type: 'media',
-          timestamp: new Date(),
-          status: 'sending',
-          mediaData: base64Content,
-          mimeType: file.type,
-          filename: file.name,
-          size: file.size
-        }
-        setMessages(prev => [...prev, newMessage])
-        setContacts(prev => prev.map(c =>
-          c.id === selectedContact.id
-            ? { ...c, lastMessage: `Sent ${file.type.startsWith('image/') ? 'an image' : 'a file'}`, lastMessageTime: new Date() }
-            : c
-        ))
-        socketService.emit('media-upload', {
-          to: selectedContact.id,
-          roomId: currentRoomId,
-          mediaData: base64Content,
-          filename: file.name,
-          mimeType: file.type
-        })
-        addNotification('success', 'File sent successfully')
-        setTimeout(() => {
-          setMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m))
-        }, 300)
-      }
-      reader.onerror = () => addNotification('error', 'Failed to read file')
-      reader.readAsDataURL(file)
-    } catch {
-      addNotification('error', 'Failed to send file')
-    }
-  }
+  const handleVoiceSend = useCallback(async (blob: Blob) => {
+    // Voice messages are always audio/webm from MediaRecorder
+    const mimeType = blob.type.startsWith('audio/') ? blob.type : 'audio/webm'
+    await sendMediaBlob(blob, mimeType, 'voice-message.webm')
+  }, [sendMediaBlob])
 
   const isEncryptionReady = currentRoomId ? (encryptionReady.get(currentRoomId) ?? false) : false
 
@@ -411,6 +581,7 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
         onTypingStart={handleTypingStart}
         onTypingStop={handleTypingStop}
         onFileSelect={handleFileSelect}
+        onVoiceSend={handleVoiceSend}
         isEncryptionReady={isEncryptionReady}
         onOpenSidebar={() => setIsMobileSidebarOpen(true)}
       />

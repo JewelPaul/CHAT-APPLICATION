@@ -1,5 +1,11 @@
 import { useRef, type ChangeEvent, useState } from 'react'
-import { Paperclip, Image, X } from 'lucide-react'
+import { Paperclip, X } from 'lucide-react'
+
+// Allowed MIME types — strict whitelist
+export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+export const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm']
+export const MAX_IMAGE_SIZE = 3 * 1024 * 1024  // 3MB
+export const MAX_VIDEO_SIZE = 8 * 1024 * 1024  // 8MB
 
 interface MediaPickerProps {
   onFileSelect: (file: File) => void
@@ -10,8 +16,6 @@ export function MediaPicker({ onFileSelect, disabled = false }: MediaPickerProps
   const [isOpen, setIsOpen] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
-  const audioInputRef = useRef<HTMLInputElement>(null)
-  const documentInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -55,7 +59,7 @@ export function MediaPicker({ onFileSelect, disabled = false }: MediaPickerProps
           
           {/* Media Options Panel */}
           <div className="absolute bottom-full left-0 mb-2 bg-bg-card rounded-2xl p-4 shadow-2xl border border-border z-20 animate-slide-up">
-            <div className="grid grid-cols-4 gap-4 min-w-[280px]">
+            <div className="grid grid-cols-2 gap-4 min-w-[160px]">
               {/* Photo */}
               <label className="flex flex-col items-center cursor-pointer group">
                 <div className="w-14 h-14 bg-purple-500/20 rounded-full flex items-center justify-center group-hover:bg-purple-500/30 transition-all group-hover:scale-105">
@@ -67,7 +71,7 @@ export function MediaPicker({ onFileSelect, disabled = false }: MediaPickerProps
                 <input
                   ref={imageInputRef}
                   type="file"
-                  accept="image/*"
+                  accept={ALLOWED_IMAGE_TYPES.join(',')}
                   hidden
                   onChange={handleFileChange}
                   disabled={disabled}
@@ -85,42 +89,7 @@ export function MediaPicker({ onFileSelect, disabled = false }: MediaPickerProps
                 <input
                   ref={videoInputRef}
                   type="file"
-                  accept="video/*"
-                  hidden
-                  onChange={handleFileChange}
-                  disabled={disabled}
-                />
-              </label>
-
-              {/* Audio */}
-              <label className="flex flex-col items-center cursor-pointer group">
-                <div className="w-14 h-14 bg-orange-500/20 rounded-full flex items-center justify-center group-hover:bg-orange-500/30 transition-all group-hover:scale-105">
-                  <span className="text-2xl">🎵</span>
-                </div>
-                <span className="text-xs mt-2 text-text-secondary group-hover:text-gold-primary transition-colors font-medium">
-                  Audio
-                </span>
-                <input
-                  ref={audioInputRef}
-                  type="file"
-                  accept="audio/*"
-                  hidden
-                  onChange={handleFileChange}
-                  disabled={disabled}
-                />
-              </label>
-
-              {/* Document */}
-              <label className="flex flex-col items-center cursor-pointer group">
-                <div className="w-14 h-14 bg-blue-500/20 rounded-full flex items-center justify-center group-hover:bg-blue-500/30 transition-all group-hover:scale-105">
-                  <span className="text-2xl">📄</span>
-                </div>
-                <span className="text-xs mt-2 text-text-secondary group-hover:text-gold-primary transition-colors font-medium">
-                  File
-                </span>
-                <input
-                  ref={documentInputRef}
-                  type="file"
+                  accept={ALLOWED_VIDEO_TYPES.join(',')}
                   hidden
                   onChange={handleFileChange}
                   disabled={disabled}
@@ -131,39 +100,5 @@ export function MediaPicker({ onFileSelect, disabled = false }: MediaPickerProps
         </>
       )}
     </div>
-  )
-}
-
-// Individual media type pickers (optional, for specific use cases)
-export function ImagePicker({ onFileSelect, disabled = false }: MediaPickerProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      onFileSelect(file)
-      e.target.value = ''
-    }
-  }
-
-  return (
-    <>
-      <input
-        ref={fileInputRef}
-        type="file"
-        onChange={handleFileChange}
-        className="hidden"
-        accept="image/*"
-        disabled={disabled}
-      />
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        disabled={disabled}
-        className="p-2 hover:bg-bg-hover rounded-lg transition-colors"
-        title="Send image"
-      >
-        <Image className="w-5 h-5 text-gold-primary" />
-      </button>
-    </>
   )
 }

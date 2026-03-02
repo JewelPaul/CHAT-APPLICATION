@@ -3,7 +3,6 @@ import { MessageBubble } from './chat/MessageBubble'
 import { ImageMessage } from './chat/ImageMessage'
 import { VideoMessage } from './chat/VideoMessage'
 import { AudioMessage } from './chat/AudioMessage'
-import { FileMessage } from './chat/FileMessage'
 import type { Message } from '../types'
 
 interface MessageProps {
@@ -13,26 +12,32 @@ interface MessageProps {
 }
 
 export function MessageComponent({ message, isSent, senderName }: MessageProps) {
+  // Use objectUrl (decrypted ephemeral) or fall back to base64 data URL
+  const mediaSrc = message.objectUrl
+    ? message.objectUrl
+    : message.mediaData && message.mimeType
+      ? `data:${message.mimeType};base64,${message.mediaData}`
+      : null
+
   const handleDownload = () => {
-    if (message.type === 'media' && message.mediaData && message.filename) {
-      const link = document.createElement('a')
-      link.href = `data:${message.mimeType};base64,${message.mediaData}`
-      link.download = message.filename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    }
+    if (!mediaSrc || !message.mimeType) return
+    const link = document.createElement('a')
+    link.href = mediaSrc
+    // Generate a safe download filename
+    const ext = message.mimeType.split('/')[1] || 'bin'
+    link.download = message.filename || `media.${ext}`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   const renderMediaContent = () => {
-    if (!message.mediaData || !message.mimeType) return null
-
-    const dataUrl = `data:${message.mimeType};base64,${message.mediaData}`
+    if (!mediaSrc || !message.mimeType) return null
 
     if (message.mimeType.startsWith('image/')) {
       return (
         <ImageMessage
-          src={dataUrl}
+          src={mediaSrc}
           filename={message.filename}
           onDownload={handleDownload}
         />
@@ -42,8 +47,8 @@ export function MessageComponent({ message, isSent, senderName }: MessageProps) 
     if (message.mimeType.startsWith('video/')) {
       return (
         <VideoMessage
-          src={dataUrl}
-          filename={message.filename}
+          src={mediaSrc}
+          onDownload={handleDownload}
         />
       )
     }
@@ -51,21 +56,13 @@ export function MessageComponent({ message, isSent, senderName }: MessageProps) 
     if (message.mimeType.startsWith('audio/')) {
       return (
         <AudioMessage
-          src={dataUrl}
-          filename={message.filename}
+          src={mediaSrc}
+          onDownload={handleDownload}
         />
       )
     }
 
-    // For other file types
-    return (
-      <FileMessage
-        filename={message.filename || 'file'}
-        size={message.size}
-        mimeType={message.mimeType}
-        onDownload={handleDownload}
-      />
-    )
+    return null
   }
 
   const timestamp = formatTimeAgo(new Date(message.timestamp))
