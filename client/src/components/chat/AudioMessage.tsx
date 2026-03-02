@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { Play, Pause } from 'lucide-react'
+import { Play, Pause, Download } from 'lucide-react'
 
 interface AudioMessageProps {
   src: string
   filename?: string
   duration?: number
+  onDownload?: () => void
 }
 
 const WAVEFORM_BARS = 20
@@ -13,7 +14,7 @@ const WAVEFORM_HASH_SCALE = 10000
 const WAVEFORM_HEIGHT_MIN = 40
 const WAVEFORM_HEIGHT_RANGE = 60
 
-export function AudioMessage({ src, filename, duration }: AudioMessageProps) {
+export function AudioMessage({ src, filename, duration, onDownload }: AudioMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [audioDuration, setAudioDuration] = useState(duration || 0)
@@ -120,13 +121,23 @@ export function AudioMessage({ src, filename, duration }: AudioMessageProps) {
         
         <div className="flex items-center justify-between mt-1">
           <span className="text-xs text-[var(--text-secondary)]">
-            {filename || 'Voice message'}
+            Voice message
           </span>
           <span className="text-xs text-[var(--text-secondary)]">
             {formatTime(currentTime)} / {formatTime(audioDuration)}
           </span>
         </div>
       </div>
+
+      {onDownload && (
+        <button
+          onClick={onDownload}
+          className="flex-shrink-0 p-1.5 hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
+          title="Download voice message"
+        >
+          <Download className="w-4 h-4 text-[var(--text-secondary)]" />
+        </button>
+      )}
     </div>
   )
 }

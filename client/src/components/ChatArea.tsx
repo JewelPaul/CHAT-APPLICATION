@@ -3,6 +3,7 @@ import { Send, Menu, ShieldCheck, ShieldAlert } from 'lucide-react'
 import { MessageComponent } from './Message'
 import { EmptyState } from './EmptyState'
 import { MediaPicker } from './chat/MediaPicker'
+import { VoiceRecorder } from './chat/VoiceRecorder'
 import { Input } from './ui/Input'
 import { Avatar } from './ui/Avatar'
 import type { StoredMessage, Contact } from '../db'
@@ -16,6 +17,7 @@ interface ChatAreaProps {
   onTypingStart: () => void
   onTypingStop: () => void
   onFileSelect?: (file: File) => void
+  onVoiceSend?: (blob: Blob) => void
   isEncryptionReady?: boolean
   onOpenSidebar?: () => void
 }
@@ -29,6 +31,7 @@ export function ChatArea({
   onTypingStart,
   onTypingStop,
   onFileSelect,
+  onVoiceSend,
   isEncryptionReady = false,
   onOpenSidebar
 }: ChatAreaProps) {
@@ -152,7 +155,12 @@ export function ChatArea({
                   to: message.recipientId,
                   message: message.content,
                   timestamp: message.timestamp,
-                  type: 'text'
+                  type: message.type === 'media' ? 'media' : 'text',
+                  mimeType: message.mimeType,
+                  filename: message.filename,
+                  size: message.size,
+                  mediaData: message.mediaData,
+                  objectUrl: message.objectUrl
                 }}
                 isSent={message.senderId === currentUserId}
               />
@@ -181,6 +189,9 @@ export function ChatArea({
         <div className="flex items-center gap-2">
           {onFileSelect && (
             <MediaPicker onFileSelect={onFileSelect} disabled={!contact} />
+          )}
+          {onVoiceSend && (
+            <VoiceRecorder onSend={onVoiceSend} disabled={!contact || !isEncryptionReady} />
           )}
           <div className="flex-1 relative">
             <Input

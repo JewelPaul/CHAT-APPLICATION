@@ -18,6 +18,7 @@ export interface Message {
   mimeType?: string
   size?: number
   mediaData?: string
+  objectUrl?: string  // ephemeral object URL for decrypted media
 }
 
 export interface ChatRoom {

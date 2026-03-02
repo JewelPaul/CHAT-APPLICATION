@@ -283,6 +283,59 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 }
 
 /**
+ * Encrypt binary data (ArrayBuffer) for media files
+ */
+export async function encryptBinary(
+  data: ArrayBuffer,
+  myPrivateKey: string,
+  theirPublicKey: string
+): Promise<{ encrypted: string; iv: string }> {
+  try {
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const sharedKey = await deriveSharedSecret(myPrivateKey, theirPublicKey);
+
+    const encrypted = await window.crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      sharedKey,
+      data
+    );
+
+    return {
+      encrypted: arrayBufferToBase64(encrypted),
+      iv: arrayBufferToBase64(iv)
+    };
+  } catch (error) {
+    console.error('Failed to encrypt binary data:', error);
+    throw new Error('Binary encryption failed');
+  }
+}
+
+/**
+ * Decrypt binary data (ArrayBuffer) for media files
+ */
+export async function decryptBinary(
+  encrypted: string,
+  iv: string,
+  myPrivateKey: string,
+  theirPublicKey: string
+): Promise<ArrayBuffer> {
+  try {
+    const ivBuffer = base64ToArrayBuffer(iv);
+    const encryptedBuffer = base64ToArrayBuffer(encrypted);
+    const sharedKey = await deriveSharedSecret(myPrivateKey, theirPublicKey);
+
+    return window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: new Uint8Array(ivBuffer) },
+      sharedKey,
+      encryptedBuffer
+    );
+  } catch (error) {
+    console.error('Failed to decrypt binary data:', error);
+    throw new Error('Binary decryption failed');
+  }
+}
+
+/**
  * Hash data using SHA-256
  */
 export async function hashData(data: string): Promise<string> {

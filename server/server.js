@@ -65,7 +65,8 @@ const io = new Server(server, {
         credentials: false
     },
     pingTimeout: 60000,
-    pingInterval: 25000
+    pingInterval: 25000,
+    maxHttpBufferSize: 12 * 1024 * 1024  // 12MB to handle encrypted 8MB video payloads
 });
 
 // Serve static files from client build directory
@@ -85,9 +86,6 @@ const chatRooms = new Map();
 
 // Map of userId -> Set of pending invites
 const pendingInvites = new Map();
-
-// In-memory media storage (files never written to disk)
-const mediaStorage = new Map(); // mediaId -> { data, type, filename, size, timestamp }
 
 // Rate limiting for media uploads (max 5 uploads per minute per user)
 const uploadRateLimit = new Map(); // userCode -> { count, resetTime }
@@ -314,7 +312,6 @@ io.on('connection', (socket) => {
                 user1: accepterKey,
                 user2: fromKey,
                 messages: [],
-                media: new Set(),
                 createdAt: new Date()
             });
             
@@ -428,7 +425,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Handle media sharing (in-memory only)
+    // Handle media sharing — relay encrypted media in-memory, never store to disk
     socket.on('media-upload', (data) => {
         try {
             const senderCode = sockets.get(socket.id);
@@ -453,7 +450,7 @@ io.on('connection', (socket) => {
 
             const { to, roomId, mediaData, filename, mimeType } = data;
 
-            // Validate file upload
+            // Validate file upload (works for both plaintext and encrypted payloads)
             const validation = validateMediaUpload({ mediaData, filename, mimeType });
             if (!validation.valid) {
                 socket.emit('media-error', { error: validation.error });
@@ -481,84 +478,42 @@ io.on('connection', (socket) => {
                 socket.emit('media-error', { error: 'Invalid media recipient or room' });
                 return;
             }
+
+            const msgId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             
-            // Store media in memory (never written to disk)
-            const mediaId = `media_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            
-            mediaStorage.set(mediaId, {
-                data: mediaData,
-                type: mimeType,
-                filename: safeFilename,
-                size: sizeInBytes,
-                timestamp: new Date(),
-                roomId: roomId
-            });
-            
-            // Store message reference in room
-            const messageData = {
-                id: Date.now() + Math.random(),
+            // Build relay payload — keep all fields from client (encrypted data, iv, etc.)
+            const relayPayload = {
+                id: msgId,
                 from: senderCode,
-                to: to,
-                mediaId: mediaId,
+                to,
                 filename: safeFilename,
-                mimeType: mimeType,
+                mimeType,
                 size: sizeInBytes,
-                timestamp: new Date(),
-                type: 'media'
+                timestamp: Date.now(),
+                type: 'media',
+                // Pass through encrypted fields if present, otherwise plain mediaData
+                ...(data.encrypted !== undefined
+                    ? { encrypted: data.encrypted, iv: data.iv }
+                    : { mediaData })
             };
             
-            room.messages.push(messageData);
-            room.media.add(mediaId);
+            // Relay to recipient — DO NOT store
+            io.to(targetUser.socketId).emit('media-message', relayPayload);
             
-            // Forward to recipient (with data for immediate display)
-            io.to(targetUser.socketId).emit('media-message', {
-                ...messageData,
-                mediaData: mediaData
-            });
+            // Confirm to sender (echo back for local display)
+            socket.emit('media-sent', relayPayload);
             
-            // Confirm to sender
-            socket.emit('media-sent', {
-                ...messageData,
-                mediaData: mediaData
-            });
-            
-            logger.info('Media uploaded', { 
+            logger.info('Media relayed', { 
                 from: senderCode, 
                 to, 
                 filename: safeFilename,
                 mimeType,
-                size: `${(sizeInBytes/1024).toFixed(1)}KB` 
+                size: `${(sizeInBytes/1024).toFixed(1)}KB`,
+                encrypted: data.encrypted !== undefined
             });
         } catch (error) {
             logger.error('Error in media-upload handler', { error: error.message, socketId: socket.id });
             socket.emit('media-error', { error: 'Failed to upload media' });
-        }
-    });
-
-    // Get media data
-    socket.on('get-media', ({ mediaId }) => {
-        const userCode = sockets.get(socket.id);
-        if (!userCode) {
-            socket.emit('media-error', { error: 'Not registered' });
-            return;
-        }
-
-        const media = mediaStorage.get(mediaId);
-        if (media) {
-            // Verify user has access to this media
-            const room = chatRooms.get(media.roomId);
-            if (room && (room.user1 === userCode || room.user2 === userCode)) {
-                socket.emit('media-data', {
-                    mediaId: mediaId,
-                    data: media.data,
-                    type: media.type,
-                    filename: media.filename
-                });
-            } else {
-                socket.emit('media-error', { error: 'Access denied' });
-            }
-        } else {
-            socket.emit('media-error', { error: 'Media not found' });
         }
     });
 
@@ -642,15 +597,9 @@ io.on('connection', (socket) => {
                 // Notify other users
                 socket.broadcast.emit('user-offline', { deviceKey: key });
                 
-                // Clean up chat rooms and media
+                // Clean up chat rooms (media is never stored — nothing to purge)
                 for (const [roomId, room] of chatRooms.entries()) {
                     if (room.user1 === key || room.user2 === key) {
-                        // Remove room and associated media after disconnect
-                        for (const message of room.messages) {
-                            if (message.type === 'media' && message.mediaId) {
-                                mediaStorage.delete(message.mediaId);
-                            }
-                        }
                         chatRooms.delete(roomId);
                     }
                 }
@@ -835,8 +784,7 @@ server.listen(PORT, () => {
     });
     logger.debug('Current stats', {
         users: users.size, 
-        rooms: chatRooms.size, 
-        media: mediaStorage.size
+        rooms: chatRooms.size
     });
 });
 
