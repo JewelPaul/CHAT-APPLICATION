@@ -39,7 +39,7 @@ interface RoomKeys {
 
 export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onContactChange }: MainChatLayoutProps) {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
-  const [messages, setMessages] = useState<StoredMessage[]>([])
+  const [conversations, setConversations] = useState<Record<string, StoredMessage[]>>({})
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -165,12 +165,10 @@ export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onCont
         status: 'delivered'
       }
 
-      setSelectedContact(prev => {
-        if (prev?.id === msgData.fromKey) {
-          setMessages(msgs => [...msgs, newMessage])
-        }
-        return prev
-      })
+      setConversations(prev => ({
+        ...prev,
+        [msgData.roomId]: [...(prev[msgData.roomId] || []), newMessage]
+      }))
 
       setContacts(prev => prev.map(c =>
         c.id === msgData.fromKey
@@ -214,11 +212,14 @@ export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onCont
       partnerToRoom.current.delete(key)
       setSelectedContact(prev => {
         if (prev?.id === key) {
-          // Revoke object URLs outside setState to avoid mutating inside reducer
-          setMessages(msgs => {
-            const urls = msgs.map(m => m.objectUrl).filter(Boolean) as string[]
+          // Revoke object URLs for this conversation to free memory
+          setConversations(conv => {
+            const convMsgs = roomIdForPartner ? (conv[roomIdForPartner] || []) : []
+            const urls = convMsgs.map(m => m.objectUrl).filter(Boolean) as string[]
             urls.forEach(url => URL.revokeObjectURL(url))
-            return []
+            const next = { ...conv }
+            if (roomIdForPartner) delete next[roomIdForPartner]
+            return next
           })
           setCurrentRoomId(null)
           addNotification('warning', 'Chat partner disconnected — session ended')
@@ -288,12 +289,16 @@ export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onCont
         mediaData
       }
 
-      setSelectedContact(prev => {
-        if (prev?.id === msgData.from) {
-          setMessages(msgs => [...msgs, newMessage])
-        }
-        return prev
-      })
+      if (!roomId) {
+        // Revoke any created objectUrl to avoid memory leak before returning
+        if (objectUrl) URL.revokeObjectURL(objectUrl)
+        return
+      }
+
+      setConversations(prev => ({
+        ...prev,
+        [roomId]: [...(prev[roomId] || []), newMessage]
+      }))
 
       setContacts(prev => prev.map(c =>
         c.id === msgData.from
@@ -344,12 +349,6 @@ export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onCont
       const activeChat = activeChats.get(selectedContact.id)
       if (activeChat) setCurrentRoomId(activeChat.roomId)
     } else {
-      // Revoke any object URLs to free memory when leaving a chat
-      setMessages(prev => {
-        const urls = prev.map(m => m.objectUrl).filter(Boolean) as string[]
-        urls.forEach(url => URL.revokeObjectURL(url))
-        return []
-      })
       setCurrentRoomId(null)
     }
   }, [selectedContact, activeChats])
@@ -402,7 +401,10 @@ export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onCont
         status: 'sending'
       }
 
-      setMessages(prev => [...prev, newMessage])
+      setConversations(prev => ({
+        ...prev,
+        [currentRoomId]: [...(prev[currentRoomId] || []), newMessage]
+      }))
       setContacts(prev => prev.map(c =>
         c.id === selectedContact.id
           ? { ...c, lastMessage: message, lastMessageTime: new Date() }
@@ -412,7 +414,12 @@ export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onCont
       socketService.sendMessage(currentRoomId, contentToSend)
 
       setTimeout(() => {
-        setMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m))
+        setConversations(prev => ({
+          ...prev,
+          [currentRoomId]: (prev[currentRoomId] || []).map(m =>
+            m.id === newMessage.id ? { ...m, status: 'sent' as const } : m
+          )
+        }))
       }, 300)
     } catch {
       addNotification('error', 'Failed to send message')
@@ -469,7 +476,10 @@ export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onCont
         objectUrl
       }
 
-      setMessages(prev => [...prev, newMessage])
+      setConversations(prev => ({
+        ...prev,
+        [currentRoomId]: [...(prev[currentRoomId] || []), newMessage]
+      }))
       setContacts(prev => prev.map(c =>
         c.id === selectedContact.id
           ? {
@@ -521,7 +531,12 @@ export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onCont
       socketService.emit('media-upload', payload)
 
       setTimeout(() => {
-        setMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, status: 'sent' as const } : m))
+        setConversations(prev => ({
+          ...prev,
+          [currentRoomId]: (prev[currentRoomId] || []).map(m =>
+            m.id === newMessage.id ? { ...m, status: 'sent' as const } : m
+          )
+        }))
       }, 300)
     } catch {
       addNotification('error', 'Failed to send media')
@@ -548,6 +563,7 @@ export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onCont
   }, [sendMediaBlob])
 
   const isEncryptionReady = currentRoomId ? (encryptionReady.get(currentRoomId) ?? false) : false
+  const activeMessages = currentRoomId ? (conversations[currentRoomId] || []) : []
 
   return (
     <div className="flex h-screen bg-[var(--bg-primary)] overflow-hidden">
@@ -580,7 +596,7 @@ export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onCont
       {/* Chat Area */}
       <ChatArea
         contact={selectedContact}
-        messages={messages}
+        messages={activeMessages}
         currentUserId={deviceKey}
         isTyping={isTyping}
         onSendMessage={handleSendMessage}
