@@ -23,7 +23,10 @@ export function ActiveCall({
 }: ActiveCallProps) {
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
+  const remoteAudioRef = useRef<HTMLAudioElement>(null)
   const [callDuration, setCallDuration] = useState(0)
+
+  const isVideoCall = callState.type === 'video'
 
   // Setup video streams
   useEffect(() => {
@@ -37,6 +40,13 @@ export function ActiveCall({
       remoteVideoRef.current.srcObject = remoteStream
     }
   }, [remoteStream])
+
+  // Attach remote audio stream for audio-only calls (video element handles audio in video calls)
+  useEffect(() => {
+    if (remoteAudioRef.current && remoteStream && !isVideoCall) {
+      remoteAudioRef.current.srcObject = remoteStream
+    }
+  }, [remoteStream, isVideoCall])
 
   // Call duration timer
   useEffect(() => {
@@ -60,10 +70,10 @@ export function ActiveCall({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
 
-  const isVideoCall = callState.type === 'video'
-
   return (
     <div className="fixed inset-0 z-50 bg-bg-dark flex flex-col">
+      {/* Hidden audio element for remote voice in audio-only calls */}
+      <audio ref={remoteAudioRef} autoPlay />
       {/* Remote Video/Avatar */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
         {isVideoCall && remoteStream ? (

@@ -61,6 +61,7 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
     iceCandidateQueueRef.current = []
     isInitiatorRef.current = false
     isCreatingOfferRef.current = false
+    remoteUserRef.current = null
 
     setCallState({
       status: 'idle',
@@ -261,9 +262,12 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
 
   // End an active call
   const endCall = useCallback(() => {
-    if (remoteUserRef.current) {
-      socketService.endCall(remoteUserRef.current.code)
-    }
+    // Guard against re-entry — prevents repeated 'call-end' emissions when server
+    // broadcasts 'call-ended' back after we already initiated the end sequence
+    if (!remoteUserRef.current) return
+    const remoteCode = remoteUserRef.current.code
+    remoteUserRef.current = null  // Clear before emitting to block re-entry
+    socketService.endCall(remoteCode)
     cleanup()
   }, [cleanup])
 

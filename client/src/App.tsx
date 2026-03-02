@@ -139,6 +139,10 @@ function ChatApp() {
     toggleVideo
   } = useWebRTC(dummyUser, activeContact)
 
+  // Keep a ref of callState so socket handlers avoid stale-closure issues
+  const callStateRef = useRef(callState)
+  useEffect(() => { callStateRef.current = callState }, [callState])
+
   // Initiate a call to the currently selected contact
   const handleInitiateCall = useCallback(async (type: CallType) => {
     if (!activeContact) {
@@ -183,6 +187,9 @@ function ChatApp() {
     }
 
     const handleCallEnded = () => {
+      // Guard: skip if call already cleaned up (prevents duplicate notifications
+      // when both peers emit call-end and the server relays back to the initiator)
+      if (callStateRef.current.status === 'idle') return
       addNotification('info', 'Call ended')
       endCall()
     }
