@@ -63,7 +63,7 @@ export function ActiveCall({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--call-bg)' }}>
       {/* Remote Video/Avatar */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
         {isVideoCall && remoteStream ? (
@@ -74,18 +74,18 @@ export function ActiveCall({
               playsInline
               className="w-full h-full object-cover"
             />
-            {/* Gradient overlay for better UI visibility */}
+            {/* Full-screen gradient overlay for readability */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/80 pointer-events-none" />
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 w-full h-full">
+          <div className="flex flex-col items-center justify-center gap-6 w-full h-full" style={{ background: 'var(--call-bg)' }}>
             <div className="relative">
               {/* Pulsing rings for voice call */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-44 h-44 rounded-full border border-white/20 animate-ping" style={{ animationDuration: '2s' }} />
+                <div className="w-44 h-44 rounded-full border border-blue-400/30 animate-ping" style={{ animationDuration: '2s' }} />
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-52 h-52 rounded-full border border-white/10 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.4s' }} />
+                <div className="w-52 h-52 rounded-full border border-blue-400/20 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.4s' }} />
               </div>
 
               {/* Avatar */}
@@ -95,19 +95,19 @@ export function ActiveCall({
             </div>
 
             <div className="text-center">
-              <h2 className="text-2xl font-semibold text-white tracking-wide">
+              <h2 className="text-2xl font-semibold tracking-wide" style={{ color: 'var(--call-text)' }}>
                 {remoteUser.deviceName}
               </h2>
               {callState.status === 'active' && (
-                <p className="text-white/60 text-sm mt-1 font-mono tracking-widest">
+                <p className="text-sm mt-1 font-mono tracking-widest" style={{ color: 'var(--call-text-muted)' }}>
                   {formatDuration(callDuration)}
                 </p>
               )}
               {callState.status === 'calling' && (
-                <p className="text-white/60 text-sm mt-1 animate-pulse">Ringing…</p>
+                <p className="text-sm mt-1 animate-pulse" style={{ color: 'var(--call-text-muted)' }}>Ringing…</p>
               )}
               {callState.status === 'connecting' && (
-                <p className="text-white/60 text-sm mt-1 animate-pulse">Connecting…</p>
+                <p className="text-sm mt-1 animate-pulse" style={{ color: 'var(--call-text-muted)' }}>Connecting…</p>
               )}
             </div>
           </div>
@@ -116,7 +116,7 @@ export function ActiveCall({
         {/* Local Video (Picture-in-Picture) — top-right, no border */}
         {isVideoCall && localStream && (
           <div
-            className="absolute top-5 right-5 overflow-hidden z-10 w-[110px] sm:w-[140px]"
+            className="absolute top-5 right-5 overflow-hidden z-20 w-[110px] sm:w-[140px]"
             style={{
               borderRadius: 18,
               boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
@@ -142,24 +142,28 @@ export function ActiveCall({
           </div>
         )}
 
-        {/* Call Info Overlay — only needed for video calls where center is hidden */}
+        {/* Call Info Overlay — gradient strip ensures text readable on any video background */}
         {isVideoCall && (
-          <div className="absolute top-5 left-5 right-5 flex items-start justify-between z-10">
-            <div>
-              <p className="text-white font-semibold text-base drop-shadow-lg">
-                {remoteUser.deviceName}
+          <div
+            className="absolute top-0 left-0 right-0 z-10 pointer-events-none"
+            style={{
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.5), transparent)',
+              padding: '16px 20px 40px'
+            }}
+          >
+            <p className="text-white font-semibold text-base drop-shadow-lg">
+              {remoteUser.deviceName}
+            </p>
+            {callState.status === 'active' && (
+              <p className="text-white/70 text-xs font-mono tracking-widest drop-shadow-lg mt-0.5">
+                {formatDuration(callDuration)}
               </p>
-              {callState.status === 'active' && (
-                <p className="text-white/60 text-xs font-mono tracking-widest drop-shadow-lg mt-0.5">
-                  {formatDuration(callDuration)}
-                </p>
-              )}
-              {(callState.status === 'calling' || callState.status === 'connecting') && (
-                <p className="text-white/50 text-xs drop-shadow-lg mt-0.5 animate-pulse">
-                  {callState.status === 'calling' ? 'Ringing…' : 'Connecting…'}
-                </p>
-              )}
-            </div>
+            )}
+            {(callState.status === 'calling' || callState.status === 'connecting') && (
+              <p className="text-white/60 text-xs drop-shadow-lg mt-0.5 animate-pulse">
+                {callState.status === 'calling' ? 'Ringing…' : 'Connecting…'}
+              </p>
+            )}
           </div>
         )}
       </div>

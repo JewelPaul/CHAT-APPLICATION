@@ -355,9 +355,11 @@ export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onCont
 
   const handleSelectContact = useCallback((contact: Contact) => {
     setSelectedContact(contact)
+    const activeChat = activeChats.get(contact.id)
+    if (activeChat) setCurrentRoomId(activeChat.roomId)
     onContactChange?.(contact)
     setIsMobileSidebarOpen(false)
-  }, [onContactChange])
+  }, [onContactChange, activeChats])
 
   const handleNewChat = () => setIsAddUserModalOpen(true)
 
