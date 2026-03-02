@@ -25,6 +25,12 @@
     --success: #16A34A;
     --error: #DC2626;
     --online: #16A34A;
+
+    /* Call UI tokens */
+    --call-bg: #f1f5f9;
+    --call-text: #0f172a;
+    --call-text-muted: rgba(0,0,0,0.6);
+    --call-btn-bg: rgba(0,0,0,0.08);
   }
 
   .dark {
@@ -49,6 +55,12 @@
     --success: #4ADE80;
     --error: #F87171;
     --online: #4ADE80;
+
+    /* Call UI tokens */
+    --call-bg: radial-gradient(circle at top, #1e293b, #0f172a);
+    --call-text: #ffffff;
+    --call-text-muted: rgba(255,255,255,0.7);
+    --call-btn-bg: rgba(255,255,255,0.15);
   }
 
   html {

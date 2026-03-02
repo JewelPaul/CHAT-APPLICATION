@@ -20,7 +20,7 @@ export function CallControls({
   return (
     <div
       className="flex items-center justify-center gap-[30px] rounded-[40px] px-[22px] py-[14px]"
-      style={{ backdropFilter: 'blur(20px)', background: 'rgba(255,255,255,0.08)' }}
+      style={{ backdropFilter: 'blur(20px)', background: 'var(--call-btn-bg)' }}
     >
       {/* Mute Button */}
       <button
@@ -28,8 +28,9 @@ export function CallControls({
         className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 ${
           isMuted
             ? 'bg-white text-gray-900 shadow-lg'
-            : 'bg-white/15 hover:bg-white/25 text-white'
+            : 'text-white'
         }`}
+        style={!isMuted ? { background: 'var(--call-btn-bg)' } : undefined}
         title={isMuted ? 'Unmute' : 'Mute'}
       >
         {isMuted ? (
@@ -46,8 +47,9 @@ export function CallControls({
           className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 ${
             !isVideoEnabled
               ? 'bg-white text-gray-900 shadow-lg'
-              : 'bg-white/15 hover:bg-white/25 text-white'
+              : 'text-white'
           }`}
+          style={isVideoEnabled ? { background: 'var(--call-btn-bg)' } : undefined}
           title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
         >
           {isVideoEnabled ? (

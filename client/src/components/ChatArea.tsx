@@ -46,6 +46,11 @@ export function ChatArea({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Jump to bottom immediately when the active conversation changes (room switch)
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+  }, [contact?.id])
+
   // Cleanup typing timeout on unmount
   useEffect(() => {
     return () => {
