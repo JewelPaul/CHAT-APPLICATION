@@ -37,7 +37,7 @@ export function KeyWelcomeScreen({ deviceKey, onContinue }: KeyWelcomeScreenProp
               <Logo size="large" className="relative" />
             </div>
           </div>
-          <h1 className="text-5xl font-bold text-white mb-3">Welcome to ChatWave</h1>
+          <h1 className="text-5xl font-bold text-white mb-3">Welcome to Zion Chat</h1>
           <p className="text-gold-primary text-xl font-medium">
             ✨ Your unique key has been generated
           </p>
@@ -55,7 +55,7 @@ export function KeyWelcomeScreen({ deviceKey, onContinue }: KeyWelcomeScreenProp
           {/* Device Key Display */}
           <div className="mb-8">
             <label className="block text-center text-gold-primary text-sm font-semibold mb-4 uppercase tracking-wide">
-              Your unique ChatWave key:
+              Your unique Zion Chat key:
             </label>
             <div className="flex items-center gap-3">
               <div className="flex-1 bg-bg-card border-2 border-gold-primary/30 rounded-2xl px-6 py-5 backdrop-blur-sm hover:border-gold-primary/50 transition-all">

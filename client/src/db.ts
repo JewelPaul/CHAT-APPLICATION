@@ -3,7 +3,7 @@
  * All user data stored locally in browser - zero cloud storage costs
  */
 
-const DB_NAME = 'ChatWaveDB';
+const DB_NAME = 'ZionChatDB';
 const DB_VERSION = 1;
 
 export interface UserProfile {

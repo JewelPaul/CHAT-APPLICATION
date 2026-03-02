@@ -86,11 +86,11 @@ export function useChat(options: UseChatOptions = DEFAULT_OPTIONS) {
         
         setUser(newUser)
         
-        addNotification('success', 'Connected to ChatWave!')
+        addNotification('success', 'Connected to Zion Chat!')
       } catch (error) {
         console.error('Failed to connect:', error)
         setConnectionStatus('error')
-        addNotification('error', 'Failed to connect to ChatWave')
+        addNotification('error', 'Failed to connect to Zion Chat')
       }
     }
 

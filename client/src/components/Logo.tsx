@@ -35,7 +35,7 @@ export function Logo({ size = 'medium', variant = 'full', className = '' }: Logo
       </div>
       <div className="flex flex-col">
         <h1 className={`font-bold text-[var(--text-primary)] ${sizeClasses[size]} leading-none tracking-tight`}>
-          ChatWave
+          Zion Chat
         </h1>
         {size !== 'small' && (
           <p className="text-xs text-[var(--text-muted)] font-medium tracking-wide mt-0.5">
