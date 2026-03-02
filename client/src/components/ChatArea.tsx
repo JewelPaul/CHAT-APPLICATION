@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Send, Menu, ShieldCheck, ShieldAlert } from 'lucide-react'
+import { Send, Menu, ShieldCheck, ShieldAlert, Phone, Video } from 'lucide-react'
 import { MessageComponent } from './Message'
 import { EmptyState } from './EmptyState'
 import { MediaPicker } from './chat/MediaPicker'
@@ -7,6 +7,7 @@ import { VoiceRecorder } from './chat/VoiceRecorder'
 import { Input } from './ui/Input'
 import { Avatar } from './ui/Avatar'
 import type { StoredMessage, Contact } from '../db'
+import type { CallType } from '../types'
 
 interface ChatAreaProps {
   contact: Contact | null
@@ -20,6 +21,7 @@ interface ChatAreaProps {
   onVoiceSend?: (blob: Blob) => void
   isEncryptionReady?: boolean
   onOpenSidebar?: () => void
+  onInitiateCall?: (type: CallType) => void
 }
 
 export function ChatArea({
@@ -33,7 +35,8 @@ export function ChatArea({
   onFileSelect,
   onVoiceSend,
   isEncryptionReady = false,
-  onOpenSidebar
+  onOpenSidebar,
+  onInitiateCall
 }: ChatAreaProps) {
   const [messageInput, setMessageInput] = useState('')
   const [typingTimeout, setTypingTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
@@ -129,6 +132,28 @@ export function ChatArea({
             )}
           </p>
         </div>
+
+        {/* Call buttons */}
+        {onInitiateCall && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={() => onInitiateCall('audio')}
+              className="p-2 rounded-lg hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+              title="Voice call"
+              aria-label="Start voice call"
+            >
+              <Phone className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onInitiateCall('video')}
+              className="p-2 rounded-lg hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+              title="Video call"
+              aria-label="Start video call"
+            >
+              <Video className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Messages Area */}

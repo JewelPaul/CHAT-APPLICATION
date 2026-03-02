@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Search, Plus, Copy, Check, Edit2, Phone, Video, X, ShieldCheck, ShieldAlert } from 'lucide-react'
+import { Search, Plus, Copy, Check, Edit2, X, ShieldCheck, ShieldAlert } from 'lucide-react'
 import { ContactItem } from './ContactItem'
 import { EmptyState } from './EmptyState'
 import { copyDeviceKeyToClipboard, isValidInviteCode, saveInviteCode } from '../utils/deviceKey'
 import socketService from '../socket'
 import type { Contact } from '../db'
-import type { CallType } from '../types'
 
 interface SidebarProps {
   deviceKey: string
@@ -13,7 +12,6 @@ interface SidebarProps {
   selectedContactId?: string
   onSelectContact: (contact: Contact) => void
   onNewChat: () => void
-  onInitiateCall?: (type: CallType) => void
   currentRoomId?: string | null
   isEncryptionReady?: boolean
 }
@@ -24,7 +22,6 @@ export function Sidebar({
   selectedContactId,
   onSelectContact,
   onNewChat,
-  onInitiateCall,
   currentRoomId,
   isEncryptionReady = false
 }: SidebarProps) {
@@ -202,42 +199,17 @@ export function Sidebar({
       {/* Session Controls */}
       {hasActiveChat && (
         <div className="px-4 pb-3">
-          <p className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-2">
-            Session Controls
-          </p>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 flex-1">
-              {isEncryptionReady ? (
-                <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Encrypted
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  Securing...
-                </span>
-              )}
-            </div>
-            {onInitiateCall && (
-              <>
-                <button
-                  onClick={() => onInitiateCall('audio')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
-                  title="Voice call"
-                >
-                  <Phone className="w-3.5 h-3.5" />
-                  Audio
-                </button>
-                <button
-                  onClick={() => onInitiateCall('video')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
-                  title="Video call"
-                >
-                  <Video className="w-3.5 h-3.5" />
-                  Video
-                </button>
-              </>
+          <div className="flex items-center gap-1.5">
+            {isEncryptionReady ? (
+              <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Encrypted
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                <ShieldAlert className="w-3.5 h-3.5" />
+                Securing...
+              </span>
             )}
           </div>
         </div>
