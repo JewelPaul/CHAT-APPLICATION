@@ -20,6 +20,8 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 interface MainChatLayoutProps {
   deviceKey: string
   onInitiateCall?: (type: CallType) => void
+  onSessionEnd?: () => void
+  onContactChange?: (contact: Contact | null) => void
 }
 
 interface ActiveChat {
@@ -35,7 +37,7 @@ interface RoomKeys {
   peerPublicKey?: string
 }
 
-export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProps) {
+export function MainChatLayout({ deviceKey, onInitiateCall, onSessionEnd, onContactChange }: MainChatLayoutProps) {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [messages, setMessages] = useState<StoredMessage[]>([])
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
@@ -91,6 +93,7 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
       setActiveChats(prev => new Map(prev).set(data.partnerKey, data))
       partnerToRoom.current.set(data.partnerKey, data.roomId)
       setSelectedContact(newContact)
+      onContactChange?.(newContact)
       setCurrentRoomId(data.roomId)
       setIsMobileSidebarOpen(false)
 
@@ -219,6 +222,8 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
           })
           setCurrentRoomId(null)
           addNotification('warning', 'Chat partner disconnected — session ended')
+          onContactChange?.(null)
+          onSessionEnd?.()
           return null
         }
         return prev
@@ -330,8 +335,9 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
       socketService.off('user-offline', handleUserOffline)
     }
     // deviceKey and addNotification are stable; updateRoomKeys is stable (useCallback)
+    // onSessionEnd and onContactChange are stable (useCallback in App.tsx)
     // roomKeysRef is always current — no need to re-register on every key change
-  }, [deviceKey, addNotification, updateRoomKeys])
+  }, [deviceKey, addNotification, updateRoomKeys, onSessionEnd, onContactChange])
 
   useEffect(() => {
     if (selectedContact) {
@@ -350,8 +356,9 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
 
   const handleSelectContact = useCallback((contact: Contact) => {
     setSelectedContact(contact)
+    onContactChange?.(contact)
     setIsMobileSidebarOpen(false)
-  }, [])
+  }, [onContactChange])
 
   const handleNewChat = () => setIsAddUserModalOpen(true)
 
@@ -565,7 +572,6 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
           selectedContactId={selectedContact?.id}
           onSelectContact={handleSelectContact}
           onNewChat={handleNewChat}
-          onInitiateCall={onInitiateCall}
           currentRoomId={currentRoomId}
           isEncryptionReady={isEncryptionReady}
         />
@@ -584,6 +590,7 @@ export function MainChatLayout({ deviceKey, onInitiateCall }: MainChatLayoutProp
         onVoiceSend={handleVoiceSend}
         isEncryptionReady={isEncryptionReady}
         onOpenSidebar={() => setIsMobileSidebarOpen(true)}
+        onInitiateCall={onInitiateCall}
       />
 
       {/* Add User Modal */}

@@ -12,6 +12,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import socketService from './socket'
 import { useNotifications } from './components/NotificationProvider'
 import type { User, CallType, ConnectionStatus } from './types'
+import type { Contact } from './db'
 
 function ChatApp() {
   // Persistent invite code — survives page reload, stored in localStorage
@@ -22,6 +23,8 @@ function ChatApp() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting')
   // activeSession: false = show landing screen, true = show chat layout
   const [activeSession, setActiveSession] = useState(false)
+  // Track currently selected contact for call targeting
+  const [activeContact, setActiveContact] = useState<User | null>(null)
 
   const [pendingRequest, setPendingRequest] = useState<{ fromKey: string; fromName: string } | null>(null)
 
@@ -103,6 +106,21 @@ function ChatApp() {
     setPendingRequest(null)
   }, [pendingRequest])
 
+  // Track contact changes from MainChatLayout for call targeting
+  const handleContactChange = useCallback((contact: Contact | null) => {
+    if (contact) {
+      setActiveContact({ code: contact.id, deviceName: contact.displayName })
+    } else {
+      setActiveContact(null)
+    }
+  }, [])
+
+  // Return to landing page when session ends (partner disconnected)
+  const handleSessionEnd = useCallback(() => {
+    setActiveSession(false)
+    setActiveContact(null)
+  }, [])
+
   const dummyUser = useMemo(() => ({
     code: inviteCode,
     deviceName: inviteCode,
@@ -113,12 +131,32 @@ function ChatApp() {
     callState,
     localStream,
     remoteStream,
+    initiateCall,
     acceptCall,
     rejectCall,
     endCall,
     toggleMute,
     toggleVideo
-  } = useWebRTC(dummyUser, null)
+  } = useWebRTC(dummyUser, activeContact)
+
+  // Initiate a call to the currently selected contact
+  const handleInitiateCall = useCallback(async (type: CallType) => {
+    if (!activeContact) {
+      addNotification('warning', 'No active contact to call')
+      return
+    }
+    try {
+      await initiateCall(type)
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          addNotification('error', 'Permission denied. Please allow camera/microphone access.')
+        } else {
+          addNotification('error', 'Failed to start call. Check device permissions.')
+        }
+      }
+    }
+  }, [activeContact, initiateCall, addNotification])
 
   // Handle incoming calls
   useEffect(() => {
@@ -236,9 +274,9 @@ function ChatApp() {
       <div className={activeSession && callState.status === 'idle' ? 'block' : 'hidden'}>
         <MainChatLayout
           deviceKey={inviteCode}
-          onInitiateCall={(type: CallType) => {
-            addNotification('info', `${type === 'audio' ? 'Voice' : 'Video'} call feature coming soon`)
-          }}
+          onInitiateCall={handleInitiateCall}
+          onSessionEnd={handleSessionEnd}
+          onContactChange={handleContactChange}
         />
       </div>
 

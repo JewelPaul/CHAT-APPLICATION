@@ -29,6 +29,8 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      mediaSrc: ["'self'", "blob:"],
       connectSrc: ["'self'", "ws:", "wss:"]
     },
   },
@@ -486,6 +488,7 @@ io.on('connection', (socket) => {
                 id: msgId,
                 from: senderCode,
                 to,
+                roomId,
                 filename: safeFilename,
                 mimeType,
                 size: sizeInBytes,
