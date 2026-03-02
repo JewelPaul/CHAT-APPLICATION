@@ -48,7 +48,7 @@ export interface Notification {
 
 export type CallType = 'audio' | 'video'
 
-export type CallStatus = 'idle' | 'calling' | 'incoming' | 'active' | 'ended'
+export type CallStatus = 'idle' | 'calling' | 'ringing' | 'connecting' | 'active' | 'ended'
 
 export interface CallState {
   status: CallStatus

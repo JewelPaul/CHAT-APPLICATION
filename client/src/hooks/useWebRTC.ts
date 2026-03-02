@@ -2,8 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import socketService from '../socket'
 import type { CallState, CallType, User } from '../types'
 
-// STUN servers for NAT traversal
-const ICE_SERVERS = {
+const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
@@ -11,345 +10,352 @@ const ICE_SERVERS = {
   ]
 }
 
-export function useWebRTC(user: User | null, remoteUser: User | null) {
-  const [callState, setCallState] = useState<CallState>({
-    status: 'idle',
-    type: 'audio',
-    isMuted: false,
-    isVideoEnabled: false
-  })
+const IDLE_STATE: CallState = {
+  status: 'idle',
+  type: 'audio',
+  isMuted: false,
+  isVideoEnabled: false
+}
+
+interface Ringtone {
+  stop: () => void
+}
+
+export function useWebRTC(remoteUser: User | null) {
+  const [callState, setCallState] = useState<CallState>(IDLE_STATE)
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null)
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
-  const remoteStreamRef = useRef<MediaStream | null>(null)
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null)
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
-  // Queue for ICE candidates received before remote description is set
   const iceCandidateQueueRef = useRef<RTCIceCandidateInit[]>([])
-  // Tracks whether this peer initiated the call (true = caller, false = receiver)
   const isInitiatorRef = useRef<boolean>(false)
-  // Flag to prevent multiple concurrent offer creation attempts
   const isCreatingOfferRef = useRef<boolean>(false)
-  // Ref always holds the current remote user — avoids stale closures in event handlers
-  const remoteUserRef = useRef<User | null>(remoteUser)
-  // Keep ref in sync with prop changes
-  useEffect(() => {
-    remoteUserRef.current = remoteUser
-  }, [remoteUser])
+  // Always reflects the latest call state for use inside socket handlers
+  const callStateRef = useRef<CallState>(IDLE_STATE)
+  useEffect(() => { callStateRef.current = callState }, [callState])
+  // Tracks the current remote peer for ICE/signal routing — avoids stale closures
+  const remoteUserRef = useRef<User | null>(null)
+  // Keeps the remoteUser prop current so initiateCall always targets the right peer
+  const remoteUserPropRef = useRef<User | null>(remoteUser)
+  useEffect(() => { remoteUserPropRef.current = remoteUser }, [remoteUser])
 
-  // Clean up media streams and peer connection
+  // ─── Ringtone ────────────────────────────────────────────────────────────────
+  const ringtoneRef = useRef<Ringtone | null>(null)
+
+  const playRingtone = useCallback(() => {
+    try {
+      type AudioCtxCtor = typeof AudioContext
+      const AudioCtx: AudioCtxCtor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: AudioCtxCtor }).webkitAudioContext
+      const ctx = new AudioCtx()
+      let active = true
+
+      const ring = () => {
+        if (!active) return
+        try {
+          const osc = ctx.createOscillator()
+          const gain = ctx.createGain()
+          osc.connect(gain)
+          gain.connect(ctx.destination)
+          osc.frequency.value = 440
+          gain.gain.setValueAtTime(0.2, ctx.currentTime)
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8)
+          osc.start(ctx.currentTime)
+          osc.stop(ctx.currentTime + 0.8)
+        } catch { /* ignore errors on individual oscillator nodes */ }
+        setTimeout(() => { if (active) ring() }, 2000)
+      }
+
+      ring()
+      ringtoneRef.current = {
+        stop: () => {
+          active = false
+          ctx.close().catch(() => { /* ignore */ })
+        }
+      }
+    } catch { /* silently fail if Web Audio API is unavailable */ }
+  }, [])
+
+  const stopRingtone = useCallback(() => {
+    if (ringtoneRef.current) {
+      ringtoneRef.current.stop()
+      ringtoneRef.current = null
+    }
+  }, [])
+
+  // ─── Cleanup ─────────────────────────────────────────────────────────────────
   const cleanup = useCallback(() => {
-    console.log('[WebRTC] Cleanup: Stopping tracks and closing peer connection')
-    
+    console.log('[WebRTC] Cleanup: stopping tracks and closing peer connection')
+    stopRingtone()
+
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        track.stop()
-        console.log('[WebRTC] Stopped local track:', track.kind)
-      })
+      localStreamRef.current.getTracks().forEach(track => track.stop())
       localStreamRef.current = null
       setLocalStream(null)
     }
 
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close()
-      console.log('[WebRTC] Peer connection closed')
       peerConnectionRef.current = null
     }
 
-    remoteStreamRef.current = null
     setRemoteStream(null)
     iceCandidateQueueRef.current = []
     isInitiatorRef.current = false
     isCreatingOfferRef.current = false
     remoteUserRef.current = null
+    setCallState(IDLE_STATE)
+  }, [stopRingtone])
 
-    setCallState({
-      status: 'idle',
-      type: 'audio',
-      isMuted: false,
-      isVideoEnabled: false
-    })
-  }, [])
-
-  // Helper function to process queued ICE candidates
-  const processIceCandidateQueue = useCallback(async (peerConnection: RTCPeerConnection) => {
+  // ─── ICE candidate queue processor ──────────────────────────────────────────
+  const processIceCandidateQueue = useCallback(async (pc: RTCPeerConnection) => {
     if (iceCandidateQueueRef.current.length === 0) return
-    
     console.log('[WebRTC] Processing', iceCandidateQueueRef.current.length, 'queued ICE candidates')
-    for (const candidateInit of iceCandidateQueueRef.current) {
+    const candidates = [...iceCandidateQueueRef.current]
+    iceCandidateQueueRef.current = []
+    for (const candidateInit of candidates) {
       try {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidateInit))
-      } catch (error) {
-        console.error('[WebRTC] Failed to add queued ICE candidate:', error)
-        // Continue processing remaining candidates even if one fails
+        await pc.addIceCandidate(new RTCIceCandidate(candidateInit))
+      } catch (err) {
+        console.error('[WebRTC] Failed to add queued ICE candidate:', err)
       }
     }
-    iceCandidateQueueRef.current = []
   }, [])
 
-  // Initialize peer connection
+  // ─── Peer connection setup ───────────────────────────────────────────────────
   const initializePeerConnection = useCallback(async (callType: CallType) => {
-    try {
-      console.log('[WebRTC] Initializing peer connection for', callType, 'call')
-      
-      // Get user media
-      const constraints: MediaStreamConstraints = {
-        audio: true,
-        video: callType === 'video'
+    console.log('[WebRTC] Initializing peer connection for', callType, 'call')
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: callType === 'video'
+    })
+    console.log('[WebRTC] Got local stream:', stream.getTracks().map(t => t.kind))
+    localStreamRef.current = stream
+    setLocalStream(stream)
+
+    const pc = new RTCPeerConnection(ICE_SERVERS)
+    peerConnectionRef.current = pc
+
+    stream.getTracks().forEach(track => pc.addTrack(track, stream))
+
+    pc.ontrack = (event) => {
+      console.log('[WebRTC] Received remote track:', event.track.kind)
+      if (event.streams[0]) {
+        setRemoteStream(event.streams[0])
       }
-
-      console.log('[WebRTC] Requesting user media with constraints:', constraints)
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
-      console.log('[WebRTC] Got local stream with tracks:', stream.getTracks().map(t => t.kind))
-      
-      localStreamRef.current = stream
-      setLocalStream(stream)
-
-      // Create peer connection
-      const peerConnection = new RTCPeerConnection(ICE_SERVERS)
-      peerConnectionRef.current = peerConnection
-      console.log('[WebRTC] Created peer connection')
-
-      // Add local stream tracks to peer connection
-      stream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, stream)
-        console.log('[WebRTC] Added local track to peer connection:', track.kind)
-      })
-
-      // Handle incoming remote stream
-      peerConnection.ontrack = (event) => {
-        console.log('[WebRTC] Received remote track:', event.track.kind)
-        if (event.streams && event.streams[0]) {
-          console.log('[WebRTC] Setting remote stream with', event.streams[0].getTracks().length, 'tracks')
-          remoteStreamRef.current = event.streams[0]
-          setRemoteStream(event.streams[0])
-        }
-      }
-
-      // Handle ICE candidates
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-          console.log('[WebRTC] Generated ICE candidate:', event.candidate.type)
-          if (remoteUserRef.current) {
-            socketService.sendWebRTCSignal(
-              remoteUserRef.current.code,
-              event.candidate.toJSON(),
-              'ice-candidate'
-            )
-          }
-        } else {
-          console.log('[WebRTC] ICE gathering complete')
-        }
-      }
-
-      // Handle ICE connection state changes
-      peerConnection.oniceconnectionstatechange = () => {
-        console.log('[WebRTC] ICE connection state:', peerConnection.iceConnectionState)
-      }
-
-      // Handle connection state changes
-      peerConnection.onconnectionstatechange = () => {
-        const state = peerConnection.connectionState
-        console.log('[WebRTC] Connection state:', state)
-        
-        if (state === 'connected') {
-          console.log('[WebRTC] Peer connection established successfully')
-          setCallState(prev => ({ ...prev, status: 'active' }))
-        } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
-          console.log('[WebRTC] Connection closed or failed')
-          cleanup()
-        }
-      }
-
-      // Handle negotiation needed (for renegotiation scenarios)
-      peerConnection.onnegotiationneeded = async () => {
-        console.log('[WebRTC] Negotiation needed, isInitiator:', isInitiatorRef.current)
-        
-        // Only the initiator should create offers on renegotiation
-        // Also check if we're already creating an offer to prevent multiple concurrent attempts
-        if (isInitiatorRef.current && 
-            peerConnection.signalingState === 'stable' && 
-            !isCreatingOfferRef.current) {
-          try {
-            isCreatingOfferRef.current = true
-            console.log('[WebRTC] Creating new offer due to negotiation needed')
-            const offer = await peerConnection.createOffer()
-            await peerConnection.setLocalDescription(offer)
-            if (remoteUserRef.current) {
-              socketService.sendWebRTCSignal(remoteUserRef.current.code, offer, 'offer')
-            }
-          } catch (error) {
-            console.error('[WebRTC] Error during renegotiation:', error)
-          } finally {
-            isCreatingOfferRef.current = false
-          }
-        }
-      }
-
-      return peerConnection
-    } catch (error) {
-      console.error('[WebRTC] Error initializing peer connection:', error)
-      throw error
     }
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && remoteUserRef.current) {
+        socketService.sendWebRTCSignal(
+          remoteUserRef.current.code,
+          event.candidate.toJSON(),
+          'ice-candidate'
+        )
+      }
+    }
+
+    pc.onconnectionstatechange = () => {
+      const state = pc.connectionState
+      console.log('[WebRTC] Connection state:', state)
+      if (state === 'connected') {
+        setCallState(prev => ({ ...prev, status: 'active' }))
+      } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+        cleanup()
+      }
+    }
+
+    return pc
   }, [cleanup])
 
-  // Initiate a call (caller side)
+  // ─── Public API ──────────────────────────────────────────────────────────────
+
+  /** Caller: initiate an outgoing call to the currently active remote user */
   const initiateCall = useCallback(async (callType: CallType) => {
-    if (!remoteUser) return
+    const target = remoteUserPropRef.current
+    if (!target) return
+    console.log('[WebRTC] Initiating', callType, 'call to', target.code)
+
+    isInitiatorRef.current = true
+    remoteUserRef.current = target
+
+    setCallState({
+      status: 'calling',
+      type: callType,
+      isMuted: false,
+      isVideoEnabled: callType === 'video',
+      remoteUser: target
+    })
 
     try {
-      console.log('[WebRTC] Initiating', callType, 'call to', remoteUser.code)
-      isInitiatorRef.current = true
-      remoteUserRef.current = remoteUser
-      
-      setCallState({
-        status: 'calling',
-        type: callType,
-        isMuted: false,
-        isVideoEnabled: callType === 'video',
-        remoteUser
-      })
-
-      // Initialize peer connection and get local media
       await initializePeerConnection(callType)
-      
-      // Send call initiation signal (but not the offer yet)
-      // The offer will be created after the remote peer accepts and is ready
-      socketService.initiateCall(remoteUser.code, callType)
-      console.log('[WebRTC] Call initiation sent, waiting for acceptance')
+      socketService.initiateCall(target.code, callType)
+      console.log('[WebRTC] Call initiation sent — waiting for acceptance')
     } catch (error) {
       console.error('[WebRTC] Error initiating call:', error)
       cleanup()
       throw error
     }
-  }, [remoteUser, initializePeerConnection, cleanup])
+  }, [initializePeerConnection, cleanup])
 
-  // Accept an incoming call (receiver side)
-  const acceptCall = useCallback(async (callType: CallType, fromUser: User) => {
-    if (!user) return
+  /** Callee: accept the current incoming (ringing) call */
+  const acceptCall = useCallback(async () => {
+    const state = callStateRef.current
+    if (state.status !== 'ringing' || !state.remoteUser) return
+
+    const callType = state.type
+    const fromUser = state.remoteUser
+    console.log('[WebRTC] Accepting', callType, 'call from', fromUser.code)
+
+    stopRingtone()
+    isInitiatorRef.current = false
+    remoteUserRef.current = fromUser
+
+    // CRITICAL: transition to 'connecting' not 'active'
+    setCallState(prev => ({ ...prev, status: 'connecting' }))
 
     try {
-      console.log('[WebRTC] Accepting', callType, 'call from', fromUser.code)
-      isInitiatorRef.current = false
-      remoteUserRef.current = fromUser
-      
-      setCallState({
-        status: 'active',
-        type: callType,
-        isMuted: false,
-        isVideoEnabled: callType === 'video',
-        remoteUser: fromUser
-      })
-
-      // Initialize peer connection and get local media
       await initializePeerConnection(callType)
-      
-      // Notify the caller that we've accepted and are ready for offer
       socketService.acceptCall(fromUser.code)
-      console.log('[WebRTC] Call accepted, peer connection ready for offer')
+      console.log('[WebRTC] Call accepted — peer connection ready for offer')
     } catch (error) {
       console.error('[WebRTC] Error accepting call:', error)
       cleanup()
       throw error
     }
-  }, [user, initializePeerConnection, cleanup])
+  }, [stopRingtone, initializePeerConnection, cleanup])
 
-  // Reject an incoming call
-  const rejectCall = useCallback((fromUser: User) => {
-    socketService.rejectCall(fromUser.code)
+  /** Callee: reject the current incoming (ringing) call */
+  const rejectCall = useCallback(() => {
+    if (callStateRef.current.status !== 'ringing') return
+    const fromUser = callStateRef.current.remoteUser
+    if (fromUser) socketService.rejectCall(fromUser.code)
+    stopRingtone()
     cleanup()
-  }, [cleanup])
+  }, [stopRingtone, cleanup])
 
-  // End an active call
+  /** Either party: end an active/calling/connecting call */
   const endCall = useCallback(() => {
-    // Guard against re-entry — prevents repeated 'call-end' emissions when server
-    // broadcasts 'call-ended' back after we already initiated the end sequence
-    if (!remoteUserRef.current) return
-    const remoteCode = remoteUserRef.current.code
-    remoteUserRef.current = null  // Clear before emitting to block re-entry
-    socketService.endCall(remoteCode)
+    if (callStateRef.current.status === 'idle') return
+    const target = remoteUserRef.current
+    if (target) {
+      remoteUserRef.current = null   // clear before emitting to prevent re-entry
+      socketService.endCall(target.code)
+    }
     cleanup()
   }, [cleanup])
 
-  // Toggle mute
+  /** Toggle microphone mute */
   const toggleMute = useCallback(() => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0]
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled
-        setCallState(prev => ({ ...prev, isMuted: !audioTrack.enabled }))
-      }
+    const audioTrack = localStreamRef.current?.getAudioTracks()[0]
+    if (audioTrack) {
+      audioTrack.enabled = !audioTrack.enabled
+      setCallState(prev => ({ ...prev, isMuted: !audioTrack.enabled }))
     }
   }, [])
 
-  // Toggle video
+  /** Toggle camera on/off */
   const toggleVideo = useCallback(() => {
-    if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0]
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled
-        setCallState(prev => ({ ...prev, isVideoEnabled: videoTrack.enabled }))
-      }
+    const videoTrack = localStreamRef.current?.getVideoTracks()[0]
+    if (videoTrack) {
+      videoTrack.enabled = !videoTrack.enabled
+      setCallState(prev => ({ ...prev, isVideoEnabled: videoTrack.enabled }))
     }
   }, [])
 
-  // Handle WebRTC signaling
+  // ─── Socket event handlers (single source of truth for all call signals) ────
   useEffect(() => {
+    // Callee: incoming call → transition to 'ringing' and play ringtone
+    const handleCallIncoming = (data: { from: string; type: CallType; deviceName: string }) => {
+      console.log('[WebRTC] Incoming call from', data.from, 'type', data.type)
+      const fromUser: User = { code: data.from, deviceName: data.deviceName }
+      remoteUserRef.current = fromUser
+      setCallState({
+        status: 'ringing',
+        type: data.type,
+        isMuted: false,
+        isVideoEnabled: data.type === 'video',
+        remoteUser: fromUser
+      })
+      playRingtone()
+    }
+
+    // Caller: callee accepted → CRITICAL: transition to 'connecting' and create offer
+    const handleCallAccepted = async () => {
+      console.log('[WebRTC] Call accepted by remote peer')
+      if (!isInitiatorRef.current || !peerConnectionRef.current) return
+
+      // CRITICAL FIX: update caller state from 'calling' to 'connecting'
+      setCallState(prev => ({ ...prev, status: 'connecting' }))
+
+      try {
+        isCreatingOfferRef.current = true
+        const offer = await peerConnectionRef.current.createOffer()
+        await peerConnectionRef.current.setLocalDescription(offer)
+        if (remoteUserRef.current) {
+          socketService.sendWebRTCSignal(remoteUserRef.current.code, offer, 'offer')
+          console.log('[WebRTC] Offer sent to remote peer')
+        }
+      } catch (error) {
+        console.error('[WebRTC] Error creating offer after acceptance:', error)
+        cleanup()
+      } finally {
+        isCreatingOfferRef.current = false
+      }
+    }
+
+    const handleCallRejected = () => {
+      console.log('[WebRTC] Call rejected by remote peer')
+      cleanup()
+    }
+
+    const handleCallEnded = () => {
+      console.log('[WebRTC] Call ended by remote peer')
+      if (callStateRef.current.status === 'idle') return
+      cleanup()
+    }
+
+    const handleCallError = (data: { error: string }) => {
+      console.error('[WebRTC] Call error:', data.error)
+      cleanup()
+    }
+
+    // Handle WebRTC signaling (SDP offer/answer + ICE candidates)
     const handleWebRTCSignal = async (data: {
       from: string
       signal: RTCSessionDescriptionInit | RTCIceCandidateInit
       signalType: 'offer' | 'answer' | 'ice-candidate'
     }) => {
       console.log('[WebRTC] Received signal:', data.signalType, 'from', data.from)
-      
-      if (!peerConnectionRef.current) {
+      const pc = peerConnectionRef.current
+      if (!pc) {
         console.warn('[WebRTC] Received signal but no peer connection exists')
         return
       }
-
       try {
         if (data.signalType === 'offer') {
-          // Handle incoming offer
-          console.log('[WebRTC] Processing offer')
-          await peerConnectionRef.current.setRemoteDescription(
+          await pc.setRemoteDescription(
             new RTCSessionDescription(data.signal as RTCSessionDescriptionInit)
           )
-          console.log('[WebRTC] Remote description set from offer')
-
-          // Process any queued ICE candidates
-          await processIceCandidateQueue(peerConnectionRef.current)
-
-          // Create answer
-          console.log('[WebRTC] Creating answer')
-          const answer = await peerConnectionRef.current.createAnswer()
-          await peerConnectionRef.current.setLocalDescription(answer)
-          console.log('[WebRTC] Local description set from answer')
-
-          // Send answer back
+          await processIceCandidateQueue(pc)
+          const answer = await pc.createAnswer()
+          await pc.setLocalDescription(answer)
           socketService.sendWebRTCSignal(data.from, answer, 'answer')
           console.log('[WebRTC] Answer sent')
         } else if (data.signalType === 'answer') {
-          // Handle incoming answer
-          console.log('[WebRTC] Processing answer')
-          await peerConnectionRef.current.setRemoteDescription(
+          await pc.setRemoteDescription(
             new RTCSessionDescription(data.signal as RTCSessionDescriptionInit)
           )
-          console.log('[WebRTC] Remote description set from answer')
-
-          // Process any queued ICE candidates
-          await processIceCandidateQueue(peerConnectionRef.current)
+          await processIceCandidateQueue(pc)
         } else if (data.signalType === 'ice-candidate') {
-          // Handle ICE candidate
-          const candidate = new RTCIceCandidate(data.signal as RTCIceCandidateInit)
-          
-          // If remote description is set, add candidate immediately
-          // Otherwise, queue it for later
-          if (peerConnectionRef.current.remoteDescription) {
-            console.log('[WebRTC] Adding ICE candidate')
-            await peerConnectionRef.current.addIceCandidate(candidate)
+          const candidate = data.signal as RTCIceCandidateInit
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate))
           } else {
-            console.log('[WebRTC] Queueing ICE candidate (remote description not set yet)')
-            iceCandidateQueueRef.current.push(data.signal as RTCIceCandidateInit)
+            // Queue until remote description is set
+            iceCandidateQueueRef.current.push(candidate)
           }
         }
       } catch (error) {
@@ -357,41 +363,26 @@ export function useWebRTC(user: User | null, remoteUser: User | null) {
       }
     }
 
-    const handleCallAccepted = async () => {
-      console.log('[WebRTC] Call accepted by remote peer')
-      
-      // Now that the receiver is ready, create and send the offer
-      if (isInitiatorRef.current && peerConnectionRef.current) {
-        try {
-          console.log('[WebRTC] Creating offer after acceptance')
-          const offer = await peerConnectionRef.current.createOffer()
-          await peerConnectionRef.current.setLocalDescription(offer)
-          console.log('[WebRTC] Local description set from offer')
-          
-          if (remoteUserRef.current) {
-            socketService.sendWebRTCSignal(remoteUserRef.current.code, offer, 'offer')
-            console.log('[WebRTC] Offer sent to remote peer')
-          }
-        } catch (error) {
-          console.error('[WebRTC] Error creating offer after acceptance:', error)
-        }
-      }
-    }
-
-    socketService.on('webrtc-signal', handleWebRTCSignal)
+    socketService.on('call-incoming', handleCallIncoming)
     socketService.on('call-accepted', handleCallAccepted)
+    socketService.on('call-rejected', handleCallRejected)
+    socketService.on('call-ended', handleCallEnded)
+    socketService.on('call-error', handleCallError)
+    socketService.on('webrtc-signal', handleWebRTCSignal)
 
     return () => {
-      socketService.off('webrtc-signal', handleWebRTCSignal)
+      socketService.off('call-incoming', handleCallIncoming)
       socketService.off('call-accepted', handleCallAccepted)
+      socketService.off('call-rejected', handleCallRejected)
+      socketService.off('call-ended', handleCallEnded)
+      socketService.off('call-error', handleCallError)
+      socketService.off('webrtc-signal', handleWebRTCSignal)
     }
-  }, [processIceCandidateQueue])
+  }, [playRingtone, processIceCandidateQueue, cleanup])
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      cleanup()
-    }
+    return () => { cleanup() }
   }, [cleanup])
 
   return {
