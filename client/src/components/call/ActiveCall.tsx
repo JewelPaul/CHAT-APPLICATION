@@ -23,38 +23,31 @@ export function ActiveCall({
 }: ActiveCallProps) {
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
-  const remoteAudioRef = useRef<HTMLAudioElement>(null)
   const [callDuration, setCallDuration] = useState(0)
 
   const isVideoCall = callState.type === 'video'
 
-  // Setup video streams
+  // Attach local stream to local video element
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream
     }
   }, [localStream])
 
+  // Attach remote stream to remote video element (video calls only)
+  // Audio-only calls route through the persistent <audio> element in App.tsx
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
+    if (remoteVideoRef.current && remoteStream && isVideoCall) {
       remoteVideoRef.current.srcObject = remoteStream
-    }
-  }, [remoteStream])
-
-  // Attach remote audio stream for audio-only calls (video element handles audio in video calls)
-  useEffect(() => {
-    if (remoteAudioRef.current && remoteStream && !isVideoCall) {
-      remoteAudioRef.current.srcObject = remoteStream
     }
   }, [remoteStream, isVideoCall])
 
-  // Call duration timer
+  // Call duration timer — only counts while active
   useEffect(() => {
     if (callState.status === 'active') {
       const interval = setInterval(() => {
         setCallDuration((prev) => prev + 1)
       }, 1000)
-
       return () => clearInterval(interval)
     }
   }, [callState.status])
@@ -63,7 +56,6 @@ export function ActiveCall({
     const h = Math.floor(seconds / 3600)
     const m = Math.floor((seconds % 3600) / 60)
     const s = seconds % 60
-    
     if (h > 0) {
       return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
     }
@@ -72,8 +64,6 @@ export function ActiveCall({
 
   return (
     <div className="fixed inset-0 z-50 bg-bg-dark flex flex-col">
-      {/* Hidden audio element for remote voice in audio-only calls */}
-      <audio ref={remoteAudioRef} autoPlay />
       {/* Remote Video/Avatar */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
         {isVideoCall && remoteStream ? (
@@ -97,13 +87,13 @@ export function ActiveCall({
               <div className="absolute inset-0 animate-pulse-gold animation-delay-150">
                 <div className="w-44 h-44 rounded-full border-2 border-gold-primary/20" />
               </div>
-              
+
               {/* Avatar */}
               <div className="relative w-40 h-40 bg-gradient-gold rounded-full flex items-center justify-center shadow-gold border-4 border-gold-dark">
                 <span className="text-7xl">👤</span>
               </div>
             </div>
-            
+
             <div className="text-center">
               <h2 className="text-3xl font-bold text-white mb-2">
                 {remoteUser.deviceName}
@@ -111,13 +101,14 @@ export function ActiveCall({
               {callState.status === 'active' && (
                 <div className="flex items-center justify-center gap-2 mt-3">
                   <div className="w-2 h-2 bg-online rounded-full animate-pulse" />
-                  <p className="text-gold-primary font-medium">
-                    Connected
-                  </p>
+                  <p className="text-gold-primary font-medium">Connected</p>
                 </div>
               )}
               {callState.status === 'calling' && (
-                <p className="text-gold-primary animate-pulse">Calling...</p>
+                <p className="text-gold-primary animate-pulse">Ringing…</p>
+              )}
+              {callState.status === 'connecting' && (
+                <p className="text-gold-primary animate-pulse">Connecting…</p>
               )}
             </div>
           </div>
@@ -125,7 +116,7 @@ export function ActiveCall({
 
         {/* Local Video (Picture-in-Picture) - Royal Gold border */}
         {isVideoCall && localStream && (
-          <div 
+          <div
             className="absolute top-6 right-6 w-32 h-44 rounded-2xl overflow-hidden shadow-2xl border-2 border-gold-primary z-10"
             style={{ touchAction: 'none' }}
           >

@@ -8,7 +8,7 @@ import { MainChatLayout } from './components/MainChatLayout'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { getOrCreateInviteCode, saveInviteCode } from './utils/deviceKey'
 import { useWebRTC } from './hooks/useWebRTC'
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import socketService from './socket'
 import { useNotifications } from './components/NotificationProvider'
 import type { User, CallType, ConnectionStatus } from './types'
@@ -27,11 +27,6 @@ function ChatApp() {
   const [activeContact, setActiveContact] = useState<User | null>(null)
 
   const [pendingRequest, setPendingRequest] = useState<{ fromKey: string; fromName: string } | null>(null)
-
-  const [incomingCall, setIncomingCall] = useState<{
-    from: User
-    type: CallType
-  } | null>(null)
 
   const { addNotification } = useNotifications()
 
@@ -121,12 +116,6 @@ function ChatApp() {
     setActiveContact(null)
   }, [])
 
-  const dummyUser = useMemo(() => ({
-    code: inviteCode,
-    deviceName: inviteCode,
-    avatar: undefined
-  }), [inviteCode])
-
   const {
     callState,
     localStream,
@@ -137,11 +126,38 @@ function ChatApp() {
     endCall,
     toggleMute,
     toggleVideo
-  } = useWebRTC(dummyUser, activeContact)
+  } = useWebRTC(activeContact)
 
-  // Keep a ref of callState so socket handlers avoid stale-closure issues
-  const callStateRef = useRef(callState)
-  useEffect(() => { callStateRef.current = callState }, [callState])
+  // Persistent remote audio element — always in the DOM so srcObject is never lost
+  // on state transitions. Audio-only calls route remote audio here; video calls use
+  // the <video> element (which carries its own audio track).
+  const remoteAudioRef = useRef<HTMLAudioElement>(null)
+  useEffect(() => {
+    if (!remoteAudioRef.current) return
+    if (callState.type === 'audio' && remoteStream) {
+      remoteAudioRef.current.srcObject = remoteStream
+    } else {
+      remoteAudioRef.current.srcObject = null
+    }
+  }, [remoteStream, callState.type])
+
+  // Notifications derived from call state transitions
+  const prevCallStatusRef = useRef(callState.status)
+  useEffect(() => {
+    const prev = prevCallStatusRef.current
+    const curr = callState.status
+    prevCallStatusRef.current = curr
+    if (prev === curr) return
+
+    if (curr === 'ringing') {
+      addNotification('info', `Incoming ${callState.type} call from ${callState.remoteUser?.deviceName ?? 'someone'}`)
+    } else if (curr === 'active') {
+      addNotification('success', 'Call connected')
+    } else if (curr === 'idle') {
+      if (prev === 'calling') addNotification('info', 'Call could not be connected')
+      else if (prev === 'connecting' || prev === 'active') addNotification('info', 'Call ended')
+    }
+  }, [callState.status, callState.type, callState.remoteUser, addNotification])
 
   // Initiate a call to the currently selected contact
   const handleInitiateCall = useCallback(async (type: CallType) => {
@@ -162,63 +178,10 @@ function ChatApp() {
     }
   }, [activeContact, initiateCall, addNotification])
 
-  // Handle incoming calls
-  useEffect(() => {
-    const handleIncomingCall = (data: {
-      from: string
-      type: CallType
-      deviceName: string
-    }) => {
-      const fromUser: User = {
-        code: data.from,
-        deviceName: data.deviceName
-      }
-      setIncomingCall({ from: fromUser, type: data.type })
-      addNotification('info', `Incoming ${data.type} call from ${data.deviceName}`)
-    }
-
-    const handleCallAccepted = () => {
-      addNotification('success', 'Call accepted')
-    }
-
-    const handleCallRejected = () => {
-      addNotification('warning', 'Call declined')
-      endCall()
-    }
-
-    const handleCallEnded = () => {
-      // Guard: skip if call already cleaned up (prevents duplicate notifications
-      // when both peers emit call-end and the server relays back to the initiator)
-      if (callStateRef.current.status === 'idle') return
-      addNotification('info', 'Call ended')
-      endCall()
-    }
-
-    const handleCallError = (data: { error: string }) => {
-      addNotification('error', data.error || 'Call failed')
-      endCall()
-    }
-
-    socketService.on('call-incoming', handleIncomingCall)
-    socketService.on('call-accepted', handleCallAccepted)
-    socketService.on('call-rejected', handleCallRejected)
-    socketService.on('call-ended', handleCallEnded)
-    socketService.on('call-error', handleCallError)
-
-    return () => {
-      socketService.off('call-incoming', handleIncomingCall)
-      socketService.off('call-accepted', handleCallAccepted)
-      socketService.off('call-rejected', handleCallRejected)
-      socketService.off('call-ended', handleCallEnded)
-      socketService.off('call-error', handleCallError)
-    }
-  }, [addNotification, endCall])
-
+  // Accept incoming call (callee uses hook's internal ringing state — no params needed)
   const handleAcceptCall = async () => {
-    if (!incomingCall) return
     try {
-      await acceptCall(incomingCall.type, incomingCall.from)
-      setIncomingCall(null)
+      await acceptCall()
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
@@ -227,14 +190,11 @@ function ChatApp() {
           addNotification('error', 'Failed to accept call. Check device permissions.')
         }
       }
-      setIncomingCall(null)
     }
   }
 
   const handleRejectCall = () => {
-    if (!incomingCall) return
-    rejectCall(incomingCall.from)
-    setIncomingCall(null)
+    rejectCall()
   }
 
   if (isLoading) {
@@ -250,6 +210,10 @@ function ChatApp() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] transition-colors duration-200">
+      {/* Persistent remote audio element — always in DOM, never remounts */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+      <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: 'none' }} />
+
       {/* Theme toggle — only top-right control */}
       <ThemeToggle />
 
@@ -263,9 +227,11 @@ function ChatApp() {
         />
       )}
 
-      {/* Active Call Interface */}
-      {(callState.status === 'calling' || callState.status === 'active') &&
-       callState.remoteUser && (
+      {/* Call Interface — outgoing call, connecting, or active call */}
+      {(callState.status === 'calling' ||
+        callState.status === 'connecting' ||
+        callState.status === 'active') &&
+        callState.remoteUser && (
         <CallInterface
           callState={callState}
           localStream={localStream}
@@ -287,11 +253,11 @@ function ChatApp() {
         />
       </div>
 
-      {/* Incoming Call Modal */}
-      {incomingCall && (
+      {/* Incoming Call Modal — shown when callee is ringing */}
+      {callState.status === 'ringing' && callState.remoteUser && (
         <IncomingCallModal
-          caller={incomingCall.from}
-          callType={incomingCall.type}
+          caller={callState.remoteUser}
+          callType={callState.type}
           onAccept={handleAcceptCall}
           onReject={handleRejectCall}
         />
