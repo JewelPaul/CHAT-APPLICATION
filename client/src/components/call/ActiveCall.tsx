@@ -116,9 +116,8 @@ export function ActiveCall({
         {/* Local Video (Picture-in-Picture) — top-right, no border */}
         {isVideoCall && localStream && (
           <div
-            className="absolute top-5 right-5 overflow-hidden z-10"
+            className="absolute top-5 right-5 overflow-hidden z-10 w-[110px] sm:w-[140px]"
             style={{
-              width: 140,
               borderRadius: 18,
               boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
               aspectRatio: '3/4',
