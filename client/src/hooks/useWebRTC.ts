@@ -5,9 +5,9 @@ import type { CallState, CallType, User } from '../types'
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' }
-  ]
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ],
+  iceCandidatePoolSize: 10
 }
 
 const IDLE_STATE: CallState = {
@@ -18,7 +18,7 @@ const IDLE_STATE: CallState = {
 }
 
 interface Ringtone {
-  stop: () => void
+  stop: (immediate?: boolean) => void
 }
 
 export function useWebRTC(remoteUser: User | null) {
@@ -50,37 +50,70 @@ export function useWebRTC(remoteUser: User | null) {
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: AudioCtxCtor }).webkitAudioContext
       const ctx = new AudioCtx()
+      // Master gain node — used to fade the whole ringtone in/out
+      const masterGain = ctx.createGain()
+      masterGain.gain.setValueAtTime(0, ctx.currentTime)
+      masterGain.connect(ctx.destination)
+
       let active = true
+      let stopped = false
 
       const ring = () => {
         if (!active) return
         try {
-          const osc = ctx.createOscillator()
-          const gain = ctx.createGain()
-          osc.connect(gain)
-          gain.connect(ctx.destination)
-          osc.frequency.value = 440
-          gain.gain.setValueAtTime(0.2, ctx.currentTime)
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8)
-          osc.start(ctx.currentTime)
-          osc.stop(ctx.currentTime + 0.8)
+          // Two-tone soft digital pulse for a premium feel
+          const osc1 = ctx.createOscillator()
+          const osc2 = ctx.createOscillator()
+          const pulseGain = ctx.createGain()
+
+          osc1.connect(pulseGain)
+          osc2.connect(pulseGain)
+          pulseGain.connect(masterGain)
+
+          osc1.type = 'sine'
+          osc2.type = 'sine'
+          osc1.frequency.value = 360   // base tone (low, subtle)
+          osc2.frequency.value = 480   // harmonic (richness)
+
+          // Soft pulse envelope: fade-in → hold → fade-out
+          pulseGain.gain.setValueAtTime(0, ctx.currentTime)
+          pulseGain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.15)
+          pulseGain.gain.setValueAtTime(0.12, ctx.currentTime + 0.55)
+          pulseGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.9)
+
+          osc1.start(ctx.currentTime)
+          osc1.stop(ctx.currentTime + 1.0)
+          osc2.start(ctx.currentTime)
+          osc2.stop(ctx.currentTime + 1.0)
         } catch { /* ignore errors on individual oscillator nodes */ }
-        setTimeout(() => { if (active) ring() }, 2000)
+        setTimeout(() => { if (active) ring() }, 1800)  // 1.8 s interval (1.0 s audio + 0.8 s silence)
       }
 
+      // Fade master volume in over 400 ms
+      masterGain.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.4)
       ring()
+
       ringtoneRef.current = {
-        stop: () => {
+        stop: (immediate = false) => {
+          if (stopped) return
+          stopped = true
           active = false
-          ctx.close().catch(() => { /* ignore */ })
+          if (immediate) {
+            ctx.close().catch(() => { /* ignore */ })
+          } else {
+            // Fade out over 300 ms then close
+            masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime)
+            masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3)
+            setTimeout(() => ctx.close().catch(() => { /* ignore */ }), 350)
+          }
         }
       }
     } catch { /* silently fail if Web Audio API is unavailable */ }
   }, [])
 
-  const stopRingtone = useCallback(() => {
+  const stopRingtone = useCallback((immediate = false) => {
     if (ringtoneRef.current) {
-      ringtoneRef.current.stop()
+      ringtoneRef.current.stop(immediate)
       ringtoneRef.current = null
     }
   }, [])
@@ -130,6 +163,8 @@ export function useWebRTC(remoteUser: User | null) {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
       video: callType === 'video'
+        ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24 } }
+        : false
     })
     console.log('[WebRTC] Got local stream:', stream.getTracks().map(t => t.kind))
     localStreamRef.current = stream
@@ -209,7 +244,7 @@ export function useWebRTC(remoteUser: User | null) {
     const fromUser = state.remoteUser
     console.log('[WebRTC] Accepting', callType, 'call from', fromUser.code)
 
-    stopRingtone()
+    stopRingtone(false)   // fade out gracefully on accept
     isInitiatorRef.current = false
     remoteUserRef.current = fromUser
 
@@ -232,7 +267,7 @@ export function useWebRTC(remoteUser: User | null) {
     if (callStateRef.current.status !== 'ringing') return
     const fromUser = callStateRef.current.remoteUser
     if (fromUser) socketService.rejectCall(fromUser.code)
-    stopRingtone()
+    stopRingtone(true)   // immediate stop on reject
     cleanup()
   }, [stopRingtone, cleanup])
 

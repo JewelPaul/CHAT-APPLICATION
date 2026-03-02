@@ -18,14 +18,17 @@ export function CallControls({
   callType
 }: CallControlsProps) {
   return (
-    <div className="flex items-center justify-center gap-6">
-      {/* Mute Button - Royal Gold accent */}
+    <div
+      className="flex items-center justify-center gap-[30px] rounded-[40px] px-[22px] py-[14px]"
+      style={{ backdropFilter: 'blur(20px)', background: 'rgba(255,255,255,0.08)' }}
+    >
+      {/* Mute Button */}
       <button
         onClick={onToggleMute}
-        className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${
+        className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 ${
           isMuted
-            ? 'bg-white text-black'
-            : 'bg-bg-card hover:bg-bg-hover text-white border-2 border-gold-primary/30'
+            ? 'bg-white text-gray-900 shadow-lg'
+            : 'bg-white/15 hover:bg-white/25 text-white'
         }`}
         title={isMuted ? 'Unmute' : 'Mute'}
       >
@@ -40,10 +43,10 @@ export function CallControls({
       {callType === 'video' && (
         <button
           onClick={onToggleVideo}
-          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${
+          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 ${
             !isVideoEnabled
-              ? 'bg-white text-black'
-              : 'bg-bg-card hover:bg-bg-hover text-white border-2 border-gold-primary/30'
+              ? 'bg-white text-gray-900 shadow-lg'
+              : 'bg-white/15 hover:bg-white/25 text-white'
           }`}
           title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
         >
@@ -55,10 +58,10 @@ export function CallControls({
         </button>
       )}
 
-      {/* End Call Button - Red with shadow */}
+      {/* End Call Button */}
       <button
         onClick={onEndCall}
-        className="w-16 h-16 rounded-full bg-error hover:bg-error/90 flex items-center justify-center shadow-lg shadow-error/30 transition-all hover:scale-105 active:scale-95"
+        className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-lg shadow-red-500/30 transition-all duration-200 hover:scale-105 active:scale-95"
         title="End call"
       >
         <PhoneOff className="w-7 h-7 text-white" />

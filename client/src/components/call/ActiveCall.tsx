@@ -63,7 +63,7 @@ export function ActiveCall({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-bg-dark flex flex-col">
+    <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col">
       {/* Remote Video/Avatar */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
         {isVideoCall && remoteStream ? (
@@ -78,47 +78,52 @@ export function ActiveCall({
             <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/80 pointer-events-none" />
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-bg-dark via-bg-surface to-bg-dark w-full h-full">
+          <div className="flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 w-full h-full">
             <div className="relative">
               {/* Pulsing rings for voice call */}
-              <div className="absolute inset-0 animate-pulse-gold">
-                <div className="w-40 h-40 rounded-full border-2 border-gold-primary/30" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-44 h-44 rounded-full border border-white/20 animate-ping" style={{ animationDuration: '2s' }} />
               </div>
-              <div className="absolute inset-0 animate-pulse-gold animation-delay-150">
-                <div className="w-44 h-44 rounded-full border-2 border-gold-primary/20" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-52 h-52 rounded-full border border-white/10 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.4s' }} />
               </div>
 
               {/* Avatar */}
-              <div className="relative w-40 h-40 bg-gradient-gold rounded-full flex items-center justify-center shadow-gold border-4 border-gold-dark">
-                <span className="text-7xl">👤</span>
+              <div className="relative w-36 h-36 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center shadow-2xl">
+                <span className="text-6xl">👤</span>
               </div>
             </div>
 
             <div className="text-center">
-              <h2 className="text-3xl font-bold text-white mb-2">
+              <h2 className="text-2xl font-semibold text-white tracking-wide">
                 {remoteUser.deviceName}
               </h2>
               {callState.status === 'active' && (
-                <div className="flex items-center justify-center gap-2 mt-3">
-                  <div className="w-2 h-2 bg-online rounded-full animate-pulse" />
-                  <p className="text-gold-primary font-medium">Connected</p>
-                </div>
+                <p className="text-white/60 text-sm mt-1 font-mono tracking-widest">
+                  {formatDuration(callDuration)}
+                </p>
               )}
               {callState.status === 'calling' && (
-                <p className="text-gold-primary animate-pulse">Ringing…</p>
+                <p className="text-white/60 text-sm mt-1 animate-pulse">Ringing…</p>
               )}
               {callState.status === 'connecting' && (
-                <p className="text-gold-primary animate-pulse">Connecting…</p>
+                <p className="text-white/60 text-sm mt-1 animate-pulse">Connecting…</p>
               )}
             </div>
           </div>
         )}
 
-        {/* Local Video (Picture-in-Picture) - Royal Gold border */}
+        {/* Local Video (Picture-in-Picture) — top-right, no border */}
         {isVideoCall && localStream && (
           <div
-            className="absolute top-6 right-6 w-32 h-44 rounded-2xl overflow-hidden shadow-2xl border-2 border-gold-primary z-10"
-            style={{ touchAction: 'none' }}
+            className="absolute top-5 right-5 overflow-hidden z-10"
+            style={{
+              width: 140,
+              borderRadius: 18,
+              boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
+              aspectRatio: '3/4',
+              touchAction: 'none'
+            }}
           >
             {callState.isVideoEnabled ? (
               <video
@@ -129,32 +134,39 @@ export function ActiveCall({
                 className="w-full h-full object-cover mirror"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-bg-card">
-                <div className="w-16 h-16 rounded-full bg-gradient-gold flex items-center justify-center">
-                  <span className="text-3xl">👤</span>
+              <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
+                  <span className="text-2xl">👤</span>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Call Info Overlay - Royal Gold */}
-        <div className="absolute top-6 left-6 right-6 flex items-center justify-between z-10">
-          <div>
-            <p className="text-white font-semibold text-lg drop-shadow-lg">
-              {remoteUser.deviceName}
-            </p>
-            {callState.status === 'active' && (
-              <p className="text-gold-primary text-sm font-medium drop-shadow-lg">
-                {formatDuration(callDuration)}
+        {/* Call Info Overlay — only needed for video calls where center is hidden */}
+        {isVideoCall && (
+          <div className="absolute top-5 left-5 right-5 flex items-start justify-between z-10">
+            <div>
+              <p className="text-white font-semibold text-base drop-shadow-lg">
+                {remoteUser.deviceName}
               </p>
-            )}
+              {callState.status === 'active' && (
+                <p className="text-white/60 text-xs font-mono tracking-widest drop-shadow-lg mt-0.5">
+                  {formatDuration(callDuration)}
+                </p>
+              )}
+              {(callState.status === 'calling' || callState.status === 'connecting') && (
+                <p className="text-white/50 text-xs drop-shadow-lg mt-0.5 animate-pulse">
+                  {callState.status === 'calling' ? 'Ringing…' : 'Connecting…'}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Call Controls - Royal Gold styling */}
-      <div className="bg-gradient-to-t from-black/90 via-bg-surface/80 to-transparent backdrop-blur-xl p-6 pb-10">
+      {/* Call Controls */}
+      <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent backdrop-blur-xl p-6 pb-10">
         <div className="flex justify-center">
           <CallControls
             isMuted={callState.isMuted}
