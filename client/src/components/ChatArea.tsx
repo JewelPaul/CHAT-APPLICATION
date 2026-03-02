@@ -135,7 +135,7 @@ export function ChatArea({
 
         {/* Call buttons */}
         {onInitiateCall && (
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0 mr-10">
             <button
               onClick={() => onInitiateCall('audio')}
               className="p-2 rounded-lg hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
