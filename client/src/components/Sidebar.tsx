@@ -127,7 +127,7 @@ export function Sidebar({
     <div className="flex flex-col h-full w-72 lg:w-80 bg-[var(--bg-secondary)] border-r border-[var(--border)]">
       {/* App title */}
       <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">ChatWave</h1>
+        <h1 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">Zion Chat</h1>
       </div>
 
       {/* Invite Code Section */}

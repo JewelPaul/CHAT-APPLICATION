@@ -308,7 +308,7 @@ export function WelcomeScreen({ inviteCode, connectionStatus, onSendConnectionRe
               <AlertTriangle className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0 mt-0.5" />
               <p className="text-xs text-[var(--text-secondary)]">
                 <span className="font-semibold text-[var(--text-primary)]">Privacy Notice — </span>
-                ChatWave stores nothing permanently. Closing this tab deletes all conversations forever.
+                Zion Chat stores nothing permanently. Closing this tab deletes all conversations forever.
               </p>
             </div>
 
