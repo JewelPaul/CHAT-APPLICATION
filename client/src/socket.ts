@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client'
 class SocketService {
   private socket: Socket | null = null
 
-  connect(deviceKey: string, deviceName: string): Promise<{ socket: Socket; username?: string }> {
+  connect(deviceKey: string, deviceName: string): Promise<{ socket: Socket; username?: string; inviteCode?: string }> {
     return new Promise((resolve, reject) => {
       // Use the current domain for socket connection, or localhost for development
       const socketUrl = process.env.NODE_ENV === 'development' 
@@ -23,8 +23,8 @@ class SocketService {
         this.socket?.emit('register', { deviceKey, deviceName })
       })
 
-      this.socket.on('registered', (data: { success: boolean; deviceKey: string; username?: string }) => {
-        resolve({ socket: this.socket!, username: data?.username })
+      this.socket.on('registered', (data: { success: boolean; deviceKey: string; username?: string; inviteCode?: string }) => {
+        resolve({ socket: this.socket!, username: data?.username, inviteCode: data?.inviteCode })
       })
 
       this.socket.on('error', (err) => {

@@ -95,6 +95,18 @@ class ChatDatabase {
     `;
 
     this.db.exec(schema);
+
+    // Migration: add invite_code column if it does not yet exist
+    try {
+      this.db.exec('ALTER TABLE device_usernames ADD COLUMN invite_code TEXT');
+    } catch {
+      // Column already exists — safe to ignore
+    }
+    // Unique partial index for invite_code (NULL values are not indexed)
+    this.db.exec(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_device_usernames_invite_code ON device_usernames(invite_code) WHERE invite_code IS NOT NULL'
+    );
+
     logger.info('Database schema initialized');
   }
 
@@ -375,6 +387,77 @@ class ChatDatabase {
       }
       throw error;
     }
+  }
+
+  // ============================================================
+  // Invite Code operations (permanent ZION-XXXX per device)
+  // ============================================================
+
+  /**
+   * Get the invite code assigned to a device key. Returns null if not set.
+   */
+  getInviteCodeByDeviceKey(deviceKey) {
+    const stmt = this.db.prepare('SELECT invite_code FROM device_usernames WHERE device_key = ?');
+    const row = stmt.get(deviceKey);
+    return row ? row.invite_code : null;
+  }
+
+  /**
+   * Get the device key that owns the given invite code. Returns null if not found.
+   */
+  getDeviceKeyByInviteCode(inviteCode) {
+    const stmt = this.db.prepare('SELECT device_key FROM device_usernames WHERE invite_code = ?');
+    const row = stmt.get(inviteCode);
+    return row ? row.device_key : null;
+  }
+
+  /**
+   * Check whether an invite code is available (not taken by any device).
+   */
+  isInviteCodeAvailable(inviteCode) {
+    const stmt = this.db.prepare('SELECT 1 FROM device_usernames WHERE invite_code = ?');
+    const row = stmt.get(inviteCode);
+    return !row;
+  }
+
+  /**
+   * Generate a unique ZION-XXXX invite code and permanently assign it to the device key.
+   * The device key row must already exist (i.e. a username must have been assigned first).
+   * Retries up to 20 times to avoid collisions.
+   */
+  generateAndAssignInviteCode(deviceKey) {
+    const maxAttempts = 20;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      const suffix = Math.floor(1000 + Math.random() * 9000); // random 4-digit number
+      const candidate = `ZION-${suffix}`;
+
+      if (this.isInviteCodeAvailable(candidate)) {
+        const stmt = this.db.prepare(
+          'UPDATE device_usernames SET invite_code = ?, updated_at = CURRENT_TIMESTAMP WHERE device_key = ?'
+        );
+        try {
+          stmt.run(candidate, deviceKey);
+          logger.info('Invite code assigned', { deviceKey, inviteCode: candidate });
+          return candidate;
+        } catch (error) {
+          if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            // Race condition — another process took this code; retry
+            continue;
+          }
+          throw error;
+        }
+      }
+    }
+
+    // Fallback: derive a 4-digit suffix from the current timestamp (last 4 digits)
+    const fallback = `ZION-${String(Date.now()).slice(-4)}`;
+    const stmt = this.db.prepare(
+      'UPDATE device_usernames SET invite_code = ?, updated_at = CURRENT_TIMESTAMP WHERE device_key = ?'
+    );
+    stmt.run(fallback, deviceKey);
+    logger.warn('Invite code fallback used', { deviceKey, inviteCode: fallback });
+    return fallback;
   }
 
   /**

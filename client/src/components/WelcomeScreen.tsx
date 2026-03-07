@@ -3,7 +3,7 @@ import { Copy, Check, Send, Shield, Trash2, Lock, Users, AlertTriangle, Edit2, X
 import { Logo } from './Logo'
 import { copyToClipboard } from '../utils'
 import { useNotifications } from './NotificationProvider'
-import { isValidInviteCode, saveInviteCode, isValidUsername } from '../utils/deviceKey'
+import { isValidUsername } from '../utils/deviceKey'
 import socketService from '../socket'
 import type { ConnectionStatus } from '../types'
 
@@ -16,13 +16,9 @@ interface WelcomeScreenProps {
   onUsernameChange?: (newUsername: string) => void
 }
 
-export function WelcomeScreen({ inviteCode, username, connectionStatus, onSendConnectionRequest, onInviteCodeChange, onUsernameChange }: WelcomeScreenProps) {
+export function WelcomeScreen({ inviteCode, username, connectionStatus, onSendConnectionRequest, onUsernameChange }: WelcomeScreenProps) {
   const [connectCode, setConnectCode] = useState('')
   const [copied, setCopied] = useState(false)
-  const [isEditingCode, setIsEditingCode] = useState(false)
-  const [editCodeValue, setEditCodeValue] = useState('')
-  const [editCodeError, setEditCodeError] = useState('')
-  const [isSavingCode, setIsSavingCode] = useState(false)
 
   // Username editing state
   const [isEditingUsername, setIsEditingUsername] = useState(false)
@@ -33,17 +29,13 @@ export function WelcomeScreen({ inviteCode, username, connectionStatus, onSendCo
   const usernameCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { addNotification } = useNotifications()
-  // Refs to track pending invite-code listeners so they can be removed on unmount
-  const pendingUpdatedRef = useRef<((...args: unknown[]) => void) | null>(null)
-  const pendingErrorRef = useRef<((...args: unknown[]) => void) | null>(null)
+  // Refs to track pending username listeners so they can be removed on unmount
   const pendingUsernameUpdatedRef = useRef<((...args: unknown[]) => void) | null>(null)
   const pendingUsernameErrorRef = useRef<((...args: unknown[]) => void) | null>(null)
 
   // Clean up any dangling socket listeners on unmount
   useEffect(() => {
     return () => {
-      if (pendingUpdatedRef.current) socketService.off('invite-code-updated', pendingUpdatedRef.current)
-      if (pendingErrorRef.current) socketService.off('invite-code-error', pendingErrorRef.current)
       if (pendingUsernameUpdatedRef.current) socketService.off('username-updated', pendingUsernameUpdatedRef.current)
       if (pendingUsernameErrorRef.current) socketService.off('username-error', pendingUsernameErrorRef.current)
       if (usernameCheckTimerRef.current) clearTimeout(usernameCheckTimerRef.current)
@@ -77,69 +69,6 @@ export function WelcomeScreen({ inviteCode, username, connectionStatus, onSendCo
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSendRequest()
-  }
-
-  const handleStartEdit = () => {
-    setEditCodeValue(inviteCode)
-    setEditCodeError('')
-    setIsEditingCode(true)
-  }
-
-  const handleCancelEdit = () => {
-    setIsEditingCode(false)
-    setEditCodeValue('')
-    setEditCodeError('')
-  }
-
-  const handleEditCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditCodeValue(e.target.value.toUpperCase())
-    setEditCodeError('')
-  }
-
-  const handleSaveCode = async () => {
-    const newCode = editCodeValue.trim().toUpperCase()
-    if (!newCode) {
-      setEditCodeError('Code cannot be empty')
-      return
-    }
-    if (!isValidInviteCode(newCode)) {
-      setEditCodeError('Format: XXXXX-XXXX (e.g. JWELL-0291)')
-      return
-    }
-    if (newCode === inviteCode) {
-      setIsEditingCode(false)
-      return
-    }
-    setIsSavingCode(true)
-    let done = false
-    const onUpdated = (data: { newCode: string }) => {
-      if (done) return
-      done = true
-      pendingUpdatedRef.current = null
-      pendingErrorRef.current = null
-      saveInviteCode(data.newCode)
-      onInviteCodeChange?.(data.newCode)
-      setIsEditingCode(false)
-      setIsSavingCode(false)
-      addNotification('success', 'Invite code updated')
-      socketService.off('invite-code-updated', onUpdated)
-      socketService.off('invite-code-error', onError)
-    }
-    const onError = (data: { message: string }) => {
-      if (done) return
-      done = true
-      pendingUpdatedRef.current = null
-      pendingErrorRef.current = null
-      setEditCodeError(data.message || 'Failed to update code')
-      setIsSavingCode(false)
-      socketService.off('invite-code-updated', onUpdated)
-      socketService.off('invite-code-error', onError)
-    }
-    pendingUpdatedRef.current = onUpdated as (...args: unknown[]) => void
-    pendingErrorRef.current = onError as (...args: unknown[]) => void
-    socketService.on('invite-code-updated', onUpdated)
-    socketService.on('invite-code-error', onError)
-    socketService.emit('update-invite-code', { newCode, displayName: newCode })
   }
 
   // Username editing handlers
@@ -366,51 +295,18 @@ export function WelcomeScreen({ inviteCode, username, connectionStatus, onSendCo
                 <span className="text-xs text-[var(--text-muted)]">{deviceLabel}</span>
               </div>
 
-              {isEditingCode ? (
-                <div className="space-y-2">
-                  <input
-                    className="input-field font-mono text-center text-lg font-bold tracking-widest uppercase"
-                    value={editCodeValue}
-                    onChange={handleEditCodeChange}
-                    onKeyDown={e => e.key === 'Enter' && handleSaveCode()}
-                    maxLength={10}
-                    placeholder="XXXXX-XXXX"
-                    autoFocus
-                    disabled={isSavingCode}
-                  />
-                  {editCodeError && (
-                    <p className="text-xs text-[var(--error)] text-center">{editCodeError}</p>
-                  )}
-                  <div className="flex gap-2">
-                    <button onClick={handleCancelEdit} disabled={isSavingCode} className="btn btn-secondary flex-1 text-sm py-1.5">
-                      <X className="w-3.5 h-3.5" /> Cancel
-                    </button>
-                    <button onClick={handleSaveCode} disabled={isSavingCode} className="btn btn-primary flex-1 text-sm py-1.5">
-                      {isSavingCode ? 'Saving…' : 'Save'}
-                    </button>
-                  </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-3 text-center">
+                  <span className="font-mono text-xl font-bold text-[var(--accent)] tracking-widest">{inviteCode}</span>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-3 text-center">
-                    <span className="font-mono text-xl font-bold text-[var(--accent)] tracking-widest">{inviteCode}</span>
-                  </div>
-                  <button
-                    onClick={handleCopyCode}
-                    title="Copy invite code"
-                    className="btn btn-secondary p-2.5 rounded-xl"
-                  >
-                    {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={handleStartEdit}
-                    title="Edit invite code"
-                    className="btn btn-secondary p-2.5 rounded-xl"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+                <button
+                  onClick={handleCopyCode}
+                  title="Copy invite code"
+                  className="btn btn-secondary p-2.5 rounded-xl"
+                >
+                  {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
               <p className="text-xs text-[var(--text-muted)] text-center">Share this code so others can connect with you</p>
             </div>
 

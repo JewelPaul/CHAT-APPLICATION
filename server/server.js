@@ -173,99 +173,57 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            const key = deviceKey.trim();
-            const name = sanitizeMessage(deviceName || key);
-            
-            // Register user with device key
-            users.set(key, {
+            const rawKey = deviceKey.trim();
+
+            // If the client already has a ZION-XXXX invite code in localStorage it will
+            // send that as the deviceKey.  Resolve it back to the original device key so
+            // the username and invite-code records remain stable across reconnects.
+            let effectiveDeviceKey = rawKey;
+            const existingDeviceKey = db.getDeviceKeyByInviteCode(rawKey);
+            if (existingDeviceKey) {
+                effectiveDeviceKey = existingDeviceKey;
+            }
+
+            // Look up (or auto-generate) the persistent username from the database
+            let username = db.getUsernameByDeviceKey(effectiveDeviceKey);
+            if (!username) {
+                username = db.generateAndAssignUsername(effectiveDeviceKey);
+            }
+
+            // Look up (or generate) the permanent invite code for this device
+            let inviteCode = db.getInviteCodeByDeviceKey(effectiveDeviceKey);
+            if (!inviteCode) {
+                inviteCode = db.generateAndAssignInviteCode(effectiveDeviceKey);
+            }
+
+            const name = sanitizeMessage(deviceName || inviteCode);
+
+            // Register user in-memory keyed by invite code (the canonical connection identifier)
+            users.set(inviteCode, {
                 socketId: socket.id,
                 name: name,
                 online: true
             });
-            
-            sockets.set(socket.id, key);
 
-            // Look up (or auto-generate) the persistent username from the database
-            let username = db.getUsernameByDeviceKey(key);
-            if (!username) {
-                username = db.generateAndAssignUsername(key);
-            }
-            
-            socket.emit('registered', { 
+            sockets.set(socket.id, inviteCode);
+
+            socket.emit('registered', {
                 success: true,
-                deviceKey: key,
+                deviceKey: inviteCode,  // tell client to adopt invite code as its device key
+                inviteCode,
                 username
             });
-            
-            logger.info('User registered', { deviceKey: key, name, username, socketId: socket.id });
+
+            logger.info('User registered', { effectiveDeviceKey, inviteCode, name, username, socketId: socket.id });
         } catch (error) {
             logger.error('Error in register handler', { error: error.message, socketId: socket.id });
             socket.emit('error', { message: 'Registration failed' });
         }
     });
 
-    // UPDATE INVITE CODE — allow user to change their code (uniqueness enforced)
-    socket.on('update-invite-code', (data) => {
-        try {
-            const oldKey = sockets.get(socket.id);
-            if (!oldKey) {
-                socket.emit('invite-code-error', { message: 'Not registered' });
-                return;
-            }
-
-            if (!data || typeof data !== 'object' || !data.newCode) {
-                socket.emit('invite-code-error', { message: 'Invalid request' });
-                return;
-            }
-
-            const newCode = data.newCode.trim().toUpperCase();
-
-            if (!validateUserCode(newCode)) {
-                socket.emit('invite-code-error', { message: 'Invalid invite code format' });
-                return;
-            }
-
-            if (newCode === oldKey) {
-                socket.emit('invite-code-updated', { newCode });
-                return;
-            }
-
-            if (users.has(newCode)) {
-                socket.emit('invite-code-error', { message: 'Invite code already in use. Please choose another.' });
-                return;
-            }
-
-            // Transfer user data to new key
-            const userData = users.get(oldKey);
-            users.delete(oldKey);
-            users.set(newCode, { ...userData, name: sanitizeMessage(data.displayName || newCode) });
-            sockets.set(socket.id, newCode);
-
-            // Update any active rooms
-            for (const [roomId, room] of chatRooms.entries()) {
-                if (room.user1 === oldKey) {room.user1 = newCode;}
-                if (room.user2 === oldKey) {room.user2 = newCode;}
-                // Notify partner of key change if applicable
-                const partnerKey = room.user1 === newCode ? room.user2 : room.user1;
-                const partner = users.get(partnerKey);
-                if (partner) {
-                    io.to(partner.socketId).emit('partner-key-changed', { oldKey, newKey: newCode, roomId });
-                }
-            }
-
-            // Update pending invites
-            if (pendingInvites.has(oldKey)) {
-                const pending = pendingInvites.get(oldKey);
-                pendingInvites.delete(oldKey);
-                pendingInvites.set(newCode, pending);
-            }
-
-            socket.emit('invite-code-updated', { newCode });
-            logger.info('Invite code updated', { oldKey, newCode, socketId: socket.id });
-        } catch (error) {
-            logger.error('Error in update-invite-code handler', { error: error.message, socketId: socket.id });
-            socket.emit('invite-code-error', { message: 'Failed to update invite code' });
-        }
+    // UPDATE INVITE CODE — invite codes are permanent; reject all change attempts
+    socket.on('update-invite-code', () => {
+        socket.emit('invite-code-error', { message: 'Invite codes are permanent and cannot be changed' });
     });
 
     // UPDATE USERNAME — allow user to change their username (uniqueness enforced in DB)

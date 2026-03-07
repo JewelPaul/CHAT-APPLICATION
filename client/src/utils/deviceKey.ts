@@ -75,9 +75,14 @@ export function saveDisplayName(name: string): void {
 }
 
 /**
- * Validate invite code: XXXXX-XXXX — 5 uppercase alphanum + dash + 4 uppercase alphanum
+ * Validate invite code: server-generated ZION-XXXX or legacy XXXXX-XXXX format.
+ * ZION-XXXX is the current canonical format (e.g. ZION-4832).
+ * The legacy 5+4 alphanumeric format is accepted for backward compatibility.
  */
 export function isValidInviteCode(code: string): boolean {
+  // Current format: ZION-XXXX (e.g. ZION-4832)
+  if (/^ZION-[0-9]{4}$/.test(code)) return true;
+  // Legacy format: XXXXX-XXXX (e.g. JWELL-0291)
   return /^[A-Z0-9]{5}-[A-Z0-9]{4}$/.test(code);
 }
 
