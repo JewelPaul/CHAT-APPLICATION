@@ -6,7 +6,7 @@ import { IncomingRequestModal } from './components/IncomingRequestModal'
 import { CallInterface } from './components/CallInterface'
 import { MainChatLayout } from './components/MainChatLayout'
 import { WelcomeScreen } from './components/WelcomeScreen'
-import { getOrCreateInviteCode, saveInviteCode } from './utils/deviceKey'
+import { getOrCreateInviteCode, saveInviteCode, getStoredUsername, saveUsername } from './utils/deviceKey'
 import { useWebRTC } from './hooks/useWebRTC'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import socketService from './socket'
@@ -17,6 +17,8 @@ import type { Contact } from './db'
 function ChatApp() {
   // Persistent invite code — survives page reload, stored in localStorage
   const [inviteCode, setInviteCode] = useState(() => getOrCreateInviteCode())
+  // Username — assigned by server on first visit, editable afterwards
+  const [username, setUsername] = useState(() => getStoredUsername())
   // Capture initial code for socket connection — changes via update-invite-code don't need reconnect
   const initialInviteCodeRef = useRef(inviteCode)
   const [isLoading, setIsLoading] = useState(true)
@@ -35,8 +37,13 @@ function ChatApp() {
     const code = initialInviteCodeRef.current
     const initialize = async () => {
       try {
-        await socketService.connect(code, code)
+        const result = await socketService.connect(code, code)
         setConnectionStatus('connected')
+        // Save the server-assigned username if we don't already have one
+        if (result.username) {
+          saveUsername(result.username)
+          setUsername(result.username)
+        }
       } catch {
         setConnectionStatus('error')
         addNotification('error', 'Failed to connect to server')
@@ -82,6 +89,11 @@ function ChatApp() {
   const handleInviteCodeChange = useCallback((newCode: string) => {
     saveInviteCode(newCode)
     setInviteCode(newCode)
+  }, [])
+
+  const handleUsernameChange = useCallback((newUsername: string) => {
+    saveUsername(newUsername)
+    setUsername(newUsername)
   }, [])
 
   const handleSendConnectionRequest = useCallback((code: string) => {
@@ -221,9 +233,11 @@ function ChatApp() {
       {!activeSession && (
         <WelcomeScreen
           inviteCode={inviteCode}
+          username={username}
           connectionStatus={connectionStatus}
           onSendConnectionRequest={handleSendConnectionRequest}
           onInviteCodeChange={handleInviteCodeChange}
+          onUsernameChange={handleUsernameChange}
         />
       )}
 

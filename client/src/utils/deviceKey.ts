@@ -1,12 +1,13 @@
 /**
  * Invite Code Generation & Persistence
  * Format: XXXXX-XXXX — 5 uppercase alphanum, dash, 4 uppercase alphanum (e.g. JWELL-0291)
- * Persists ONLY inviteCode and displayName in localStorage. No messages, no chat history.
+ * Persists ONLY inviteCode, displayName, and username in localStorage. No messages, no chat history.
  */
 
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const STORAGE_KEY_CODE = 'inviteCode';
 const STORAGE_KEY_NAME = 'displayName';
+const STORAGE_KEY_USERNAME = 'username';
 
 /**
  * Generate a new 10-character dash-separated invite code using Web Crypto API.
@@ -117,5 +118,35 @@ export async function copyDeviceKeyToClipboard(key: string): Promise<void> {
     document.execCommand('copy');
     document.body.removeChild(textarea);
   }
+}
+
+/**
+ * Get the username stored in localStorage (set after server registration).
+ */
+export function getStoredUsername(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEY_USERNAME) || '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Save a username to localStorage.
+ */
+export function saveUsername(username: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_USERNAME, username);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
+ * Validate a username against the allowed format.
+ * Rules: 4-40 characters, only letters, numbers, underscores, hyphens, periods.
+ */
+export function isValidUsername(username: string): boolean {
+  return /^[a-zA-Z0-9._-]{4,40}$/.test(username.trim());
 }
 
