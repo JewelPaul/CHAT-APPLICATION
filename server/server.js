@@ -13,9 +13,15 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const { sanitizeMessage, sanitizeFilename, validateUserCode, validateMediaUpload, Logger } = require('./utils');
+const { validateUsername } = require('./auth');
+const ChatDatabase = require('./database');
 const { version } = require('../package.json');
 
 const logger = new Logger(process.env.LOG_LEVEL || 'info');
+
+// Initialize database for persistent username storage
+const dbPath = process.env.DB_PATH || './data/chatwave.db';
+const db = new ChatDatabase(dbPath);
 
 const app = express();
 
@@ -55,6 +61,28 @@ app.get('/api/health', apiLimiter, (req, res) => {
     version,
     mode: 'device-key'
   });
+});
+
+// Username availability check endpoint
+app.get('/api/username/check', apiLimiter, (req, res) => {
+  try {
+    const { username, deviceKey } = req.query;
+
+    if (!username || typeof username !== 'string') {
+      return res.status(400).json({ available: false, error: 'Username is required' });
+    }
+
+    const validation = validateUsername(username.trim());
+    if (!validation.valid) {
+      return res.status(400).json({ available: false, error: validation.error });
+    }
+
+    const available = db.isUsernameAvailable(validation.username, deviceKey || null);
+    return res.json({ available, username: validation.username });
+  } catch (error) {
+    logger.error('Error in username check', { error: error.message });
+    return res.status(500).json({ available: false, error: 'Server error' });
+  }
 });
 
 const server = http.createServer(app);
@@ -156,13 +184,20 @@ io.on('connection', (socket) => {
             });
             
             sockets.set(socket.id, key);
+
+            // Look up (or auto-generate) the persistent username from the database
+            let username = db.getUsernameByDeviceKey(key);
+            if (!username) {
+                username = db.generateAndAssignUsername(key);
+            }
             
             socket.emit('registered', { 
                 success: true,
-                deviceKey: key
+                deviceKey: key,
+                username
             });
             
-            logger.info('User registered', { deviceKey: key, name, socketId: socket.id });
+            logger.info('User registered', { deviceKey: key, name, username, socketId: socket.id });
         } catch (error) {
             logger.error('Error in register handler', { error: error.message, socketId: socket.id });
             socket.emit('error', { message: 'Registration failed' });
@@ -230,6 +265,59 @@ io.on('connection', (socket) => {
         } catch (error) {
             logger.error('Error in update-invite-code handler', { error: error.message, socketId: socket.id });
             socket.emit('invite-code-error', { message: 'Failed to update invite code' });
+        }
+    });
+
+    // UPDATE USERNAME — allow user to change their username (uniqueness enforced in DB)
+    socket.on('update-username', (data) => {
+        try {
+            const deviceKey = sockets.get(socket.id);
+            if (!deviceKey) {
+                socket.emit('username-error', { message: 'Not registered' });
+                return;
+            }
+
+            if (!data || typeof data !== 'object' || !data.username) {
+                socket.emit('username-error', { message: 'Invalid request' });
+                return;
+            }
+
+            const validation = validateUsername(data.username.trim());
+            if (!validation.valid) {
+                socket.emit('username-error', { message: validation.error });
+                return;
+            }
+
+            const newUsername = validation.username;
+
+            // Check if this is already the user's current username
+            const currentUsername = db.getUsernameByDeviceKey(deviceKey);
+            if (currentUsername && currentUsername.toLowerCase() === newUsername.toLowerCase()) {
+                socket.emit('username-updated', { username: newUsername });
+                return;
+            }
+
+            // Check availability before attempting DB write
+            if (!db.isUsernameAvailable(newUsername, deviceKey)) {
+                socket.emit('username-error', { message: 'Username already taken' });
+                return;
+            }
+
+            try {
+                db.setUsernameForDeviceKey(deviceKey, newUsername);
+                socket.emit('username-updated', { username: newUsername });
+                logger.info('Username updated', { deviceKey, username: newUsername });
+            } catch (dbError) {
+                // Handle race condition where another user claimed the name between check and write
+                if (dbError.message === 'Username already taken') {
+                    socket.emit('username-error', { message: 'Username already taken' });
+                } else {
+                    throw dbError;
+                }
+            }
+        } catch (error) {
+            logger.error('Error in update-username handler', { error: error.message, socketId: socket.id });
+            socket.emit('username-error', { message: 'Failed to update username' });
         }
     });
 

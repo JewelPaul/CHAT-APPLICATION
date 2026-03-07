@@ -52,27 +52,30 @@ function verifyToken(token) {
 
 /**
  * Validate username format
- * - Must start with @ (like Twitter)
- * - 3-20 characters after @
- * - Only alphanumeric, underscore, hyphen
+ * - 4-40 characters
+ * - Only letters, numbers, underscores, hyphens, periods
+ * - Regex: ^[a-zA-Z0-9._-]{4,40}$
  */
 function validateUsername(username) {
   if (!username || typeof username !== 'string') {
     return { valid: false, error: 'Username is required' };
   }
 
-  // Remove @ if present for validation
-  const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
+  const trimmed = username.trim();
 
-  if (cleanUsername.length < 3 || cleanUsername.length > 20) {
-    return { valid: false, error: 'Username must be 3-20 characters' };
+  if (trimmed.length < 4) {
+    return { valid: false, error: 'Username must be at least 4 characters' };
   }
 
-  if (!/^[a-zA-Z0-9_-]+$/.test(cleanUsername)) {
-    return { valid: false, error: 'Username can only contain letters, numbers, underscore, and hyphen' };
+  if (trimmed.length > 40) {
+    return { valid: false, error: 'Username must be at most 40 characters' };
   }
 
-  return { valid: true, username: `@${cleanUsername}` };
+  if (!/^[a-zA-Z0-9._-]{4,40}$/.test(trimmed)) {
+    return { valid: false, error: 'Username can only contain letters, numbers, underscores, hyphens, and periods' };
+  }
+
+  return { valid: true, username: trimmed };
 }
 
 /**

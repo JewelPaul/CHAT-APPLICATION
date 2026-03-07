@@ -82,6 +82,16 @@ class ChatDatabase {
 
       CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
       CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+
+      -- Device usernames table: maps device keys to persistent unique usernames
+      CREATE TABLE IF NOT EXISTS device_usernames (
+        device_key TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_device_usernames_username ON device_usernames(username);
     `;
 
     this.db.exec(schema);
@@ -309,6 +319,85 @@ class ChatDatabase {
   close() {
     this.db.close();
     logger.info('Database connection closed');
+  }
+
+  // ============================================================
+  // Device Username operations (persistent username per device)
+  // ============================================================
+
+  /**
+   * Get username for a device key. Returns null if not set.
+   */
+  getUsernameByDeviceKey(deviceKey) {
+    const stmt = this.db.prepare('SELECT username FROM device_usernames WHERE device_key = ?');
+    const row = stmt.get(deviceKey);
+    return row ? row.username : null;
+  }
+
+  /**
+   * Check if a username is available (not taken by any other device key).
+   * If excludeDeviceKey is provided, that device's own current username is excluded from the check.
+   */
+  isUsernameAvailable(username, excludeDeviceKey = null) {
+    let stmt;
+    if (excludeDeviceKey) {
+      stmt = this.db.prepare(
+        'SELECT 1 FROM device_usernames WHERE LOWER(username) = LOWER(?) AND device_key != ?'
+      );
+      const row = stmt.get(username, excludeDeviceKey);
+      return !row;
+    } else {
+      stmt = this.db.prepare('SELECT 1 FROM device_usernames WHERE LOWER(username) = LOWER(?)');
+      const row = stmt.get(username);
+      return !row;
+    }
+  }
+
+  /**
+   * Assign or update the username for a device key.
+   * Throws an error if the username is already taken by another device.
+   */
+  setUsernameForDeviceKey(deviceKey, username) {
+    const stmt = this.db.prepare(`
+      INSERT INTO device_usernames (device_key, username, updated_at)
+      VALUES (?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(device_key) DO UPDATE SET
+        username = excluded.username,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    try {
+      stmt.run(deviceKey, username);
+      logger.info('Username assigned', { deviceKey, username });
+      return username;
+    } catch (error) {
+      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        throw new Error('Username already taken');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Generate a unique random username and assign it to the device key.
+   * Tries multiple candidates until a unique one is found.
+   */
+  generateAndAssignUsername(deviceKey) {
+    const prefixes = ['guest', 'user', 'zionUser', 'zion'];
+    const maxAttempts = 20;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+      const suffix = Math.floor(1000 + Math.random() * 9000); // 4-digit number
+      const candidate = `${prefix}${suffix}`;
+
+      if (this.isUsernameAvailable(candidate)) {
+        return this.setUsernameForDeviceKey(deviceKey, candidate);
+      }
+    }
+
+    // Fallback: use a longer unique suffix
+    const fallback = `user${Date.now().toString().slice(-8)}`;
+    return this.setUsernameForDeviceKey(deviceKey, fallback);
   }
 }
 
