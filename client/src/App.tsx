@@ -44,6 +44,11 @@ function ChatApp() {
           saveUsername(result.username)
           setUsername(result.username)
         }
+        // Adopt the server-assigned permanent invite code (ZION-XXXX format)
+        if (result.inviteCode) {
+          saveInviteCode(result.inviteCode)
+          setInviteCode(result.inviteCode)
+        }
       } catch {
         setConnectionStatus('error')
         addNotification('error', 'Failed to connect to server')

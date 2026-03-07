@@ -33,6 +33,10 @@ function validateUserCode(code) {
   }
   
   const trimmed = code.trim();
+  // Accept server-generated invite code format: ZION-XXXX (e.g. ZION-4832)
+  if (/^ZION-[0-9]{4}$/.test(trimmed)) {
+    return true;
+  }
   // Accept new 10-char dash-separated format: XXXXX-XXXX (e.g. JWELL-0291)
   if (/^[A-Z0-9]{5}-[A-Z0-9]{4}$/.test(trimmed)) {
     return true;
