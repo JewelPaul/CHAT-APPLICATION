@@ -6,7 +6,7 @@ import { IncomingRequestModal } from './components/IncomingRequestModal'
 import { CallInterface } from './components/CallInterface'
 import { MainChatLayout } from './components/MainChatLayout'
 import { WelcomeScreen } from './components/WelcomeScreen'
-import { getOrCreateInviteCode, saveInviteCode, getStoredUsername, saveUsername } from './utils/deviceKey'
+import { getOrCreateInviteCode, getOrCreateDeviceId, saveInviteCode, getStoredUsername, saveUsername } from './utils/deviceKey'
 import { useWebRTC } from './hooks/useWebRTC'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import socketService from './socket'
@@ -15,12 +15,12 @@ import type { User, CallType, ConnectionStatus } from './types'
 import type { Contact } from './db'
 
 function ChatApp() {
+  // Permanent internal device ID — used for server registration (never shown to users)
+  const deviceId = useState(() => getOrCreateDeviceId())[0]
   // Persistent invite code — survives page reload, stored in localStorage
   const [inviteCode, setInviteCode] = useState(() => getOrCreateInviteCode())
   // Username — assigned by server on first visit, editable afterwards
   const [username, setUsername] = useState(() => getStoredUsername())
-  // Capture initial code for socket connection — changes via update-invite-code don't need reconnect
-  const initialInviteCodeRef = useRef(inviteCode)
   const [isLoading, setIsLoading] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting')
   // activeSession: false = show landing screen, true = show chat layout
@@ -32,12 +32,13 @@ function ChatApp() {
 
   const { addNotification } = useNotifications()
 
-  // Initialize socket connection once with the initial invite code
+  // Initialize socket connection once using the stable deviceId
   useEffect(() => {
-    const code = initialInviteCodeRef.current
     const initialize = async () => {
       try {
-        const result = await socketService.connect(code, code)
+        // Send the stable UUID deviceId to the server so it can look up (or create)
+        // the permanent invite code and username for this device.
+        const result = await socketService.connect(deviceId, deviceId)
         setConnectionStatus('connected')
         // Save the server-assigned username if we don't already have one
         if (result.username) {
@@ -62,7 +63,7 @@ function ChatApp() {
     return () => {
       socketService.disconnect()
     }
-  }, [addNotification])
+  }, [addNotification, deviceId])
 
   // Switch to chat layout when a connection is established
   useEffect(() => {

@@ -108,8 +108,11 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 // Map of userCode -> user data
 const users = new Map();
 
-// Map of socketId -> userCode
+// Map of socketId -> userCode (invite code — used for routing)
 const sockets = new Map();
+
+// Map of socketId -> effectiveDeviceKey (UUID — used for DB operations)
+const socketToDeviceKey = new Map();
 
 // Map of roomId -> room data
 const chatRooms = new Map();
@@ -206,6 +209,7 @@ io.on('connection', (socket) => {
             });
 
             sockets.set(socket.id, inviteCode);
+            socketToDeviceKey.set(socket.id, effectiveDeviceKey);
 
             socket.emit('registered', {
                 success: true,
@@ -229,8 +233,16 @@ io.on('connection', (socket) => {
     // UPDATE USERNAME — allow user to change their username (uniqueness enforced in DB)
     socket.on('update-username', (data) => {
         try {
-            const deviceKey = sockets.get(socket.id);
-            if (!deviceKey) {
+            // Use the invite code to verify the socket is registered, then use the
+            // effectiveDeviceKey for all DB operations (the DB is keyed by deviceId/UUID).
+            const inviteCode = sockets.get(socket.id);
+            if (!inviteCode) {
+                socket.emit('username-error', { message: 'Not registered' });
+                return;
+            }
+
+            const dbKey = socketToDeviceKey.get(socket.id);
+            if (!dbKey) {
                 socket.emit('username-error', { message: 'Not registered' });
                 return;
             }
@@ -249,22 +261,22 @@ io.on('connection', (socket) => {
             const newUsername = validation.username;
 
             // Check if this is already the user's current username
-            const currentUsername = db.getUsernameByDeviceKey(deviceKey);
+            const currentUsername = db.getUsernameByDeviceKey(dbKey);
             if (currentUsername && currentUsername.toLowerCase() === newUsername.toLowerCase()) {
                 socket.emit('username-updated', { username: newUsername });
                 return;
             }
 
             // Check availability before attempting DB write
-            if (!db.isUsernameAvailable(newUsername, deviceKey)) {
+            if (!db.isUsernameAvailable(newUsername, dbKey)) {
                 socket.emit('username-error', { message: 'Username already taken' });
                 return;
             }
 
             try {
-                db.setUsernameForDeviceKey(deviceKey, newUsername);
+                db.setUsernameForDeviceKey(dbKey, newUsername);
                 socket.emit('username-updated', { username: newUsername });
-                logger.info('Username updated', { deviceKey, username: newUsername });
+                logger.info('Username updated', { deviceId: dbKey, username: newUsername });
             } catch (dbError) {
                 // Handle race condition where another user claimed the name between check and write
                 if (dbError.message === 'Username already taken') {
@@ -639,6 +651,7 @@ io.on('connection', (socket) => {
                     user.online = false;
                 }
                 sockets.delete(socket.id);
+                socketToDeviceKey.delete(socket.id);
                 
                 // Clean up pending invites
                 pendingInvites.delete(key);
@@ -652,6 +665,9 @@ io.on('connection', (socket) => {
                         chatRooms.delete(roomId);
                     }
                 }
+            } else {
+                // Socket never fully registered — still clean up device key map
+                socketToDeviceKey.delete(socket.id);
             }
         } catch (error) {
             logger.error('Error in disconnect handler', { error: error.message, socketId: socket.id });

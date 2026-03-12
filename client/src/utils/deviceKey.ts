@@ -1,13 +1,49 @@
 /**
- * Invite Code Generation & Persistence
- * Format: XXXXX-XXXX — 5 uppercase alphanum, dash, 4 uppercase alphanum (e.g. JWELL-0291)
- * Persists ONLY inviteCode, displayName, and username in localStorage. No messages, no chat history.
+ * Device Identity & Invite Code Management
+ *
+ * Each device has a stable identity stored in localStorage:
+ *   zion_device_id  — internal UUID, never shown to users, never changes
+ *   zion_invite_code — server-assigned ZION-XXXX code, shown and shared with others
+ *   zion_username   — editable display name (unique, server-validated)
+ *
+ * Legacy keys ('inviteCode', 'displayName', 'username') are still read for
+ * backward-compatibility with existing sessions.
  */
 
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const STORAGE_KEY_CODE = 'inviteCode';
+const STORAGE_KEY_DEVICE_ID = 'zion_device_id';
+const STORAGE_KEY_CODE = 'zion_invite_code';
+// Legacy displayName key: kept as-is (not prefixed) for backward compatibility
+// with existing localStorage entries created before the 'zion_' naming convention.
 const STORAGE_KEY_NAME = 'displayName';
-const STORAGE_KEY_USERNAME = 'username';
+const STORAGE_KEY_USERNAME = 'zion_username';
+
+// Legacy keys kept for migration only
+const LEGACY_KEY_CODE = 'inviteCode';
+const LEGACY_KEY_USERNAME = 'username';
+
+/**
+ * Get or create the permanent internal device ID (UUID).
+ * This is the stable identifier sent to the server for registration.
+ * It is stored under 'zion_device_id' and never shown to users.
+ */
+export function getOrCreateDeviceId(): string {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_DEVICE_ID);
+    if (stored && stored.length > 0) {
+      return stored;
+    }
+  } catch {
+    // localStorage not available — fall through to generate
+  }
+  const id = crypto.randomUUID();
+  try {
+    localStorage.setItem(STORAGE_KEY_DEVICE_ID, id);
+  } catch {
+    // Ignore storage errors
+  }
+  return id;
+}
 
 /**
  * Generate a new 10-character dash-separated invite code using Web Crypto API.
@@ -25,20 +61,26 @@ export function generateInviteCode(): string {
 
 /**
  * Get the persistent invite code for this device.
- * Loads from localStorage if available; generates and saves a new one otherwise.
+ * Loads from localStorage (new key, then legacy key) if available.
+ * Returns an empty string if not yet assigned by the server.
  */
 export function getOrCreateInviteCode(): string {
   try {
+    // Check new key first
     const stored = localStorage.getItem(STORAGE_KEY_CODE);
     if (stored && isValidInviteCode(stored)) {
       return stored;
     }
+    // Migrate from legacy key
+    const legacy = localStorage.getItem(LEGACY_KEY_CODE);
+    if (legacy && isValidInviteCode(legacy)) {
+      saveInviteCode(legacy);
+      return legacy;
+    }
   } catch {
-    // localStorage not available — fall through to generate
+    // localStorage not available
   }
-  const code = generateInviteCode();
-  saveInviteCode(code);
-  return code;
+  return '';
 }
 
 /**
@@ -127,10 +169,19 @@ export async function copyDeviceKeyToClipboard(key: string): Promise<void> {
 
 /**
  * Get the username stored in localStorage (set after server registration).
+ * Reads from new key first, then migrates from the legacy 'username' key.
  */
 export function getStoredUsername(): string {
   try {
-    return localStorage.getItem(STORAGE_KEY_USERNAME) || '';
+    const stored = localStorage.getItem(STORAGE_KEY_USERNAME);
+    if (stored) return stored;
+    // Migrate from legacy key
+    const legacy = localStorage.getItem(LEGACY_KEY_USERNAME);
+    if (legacy) {
+      saveUsername(legacy);
+      return legacy;
+    }
+    return '';
   } catch {
     return '';
   }
