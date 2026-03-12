@@ -33,6 +33,10 @@ function validateUserCode(code) {
   }
   
   const trimmed = code.trim();
+  // Accept standard UUID format (crypto.randomUUID output): xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return true;
+  }
   // Accept server-generated invite code format: ZION-XXXX (e.g. ZION-4832)
   if (/^ZION-[0-9]{4}$/.test(trimmed)) {
     return true;
