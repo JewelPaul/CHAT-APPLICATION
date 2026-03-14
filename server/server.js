@@ -114,6 +114,9 @@ const sockets = new Map();
 // Map of socketId -> effectiveDeviceKey (UUID — used for DB operations)
 const socketToDeviceKey = new Map();
 
+// Explicit inviteCode -> socketId mapping for fast lookup (refreshed on register-device)
+const connectedDevices = new Map();
+
 // Map of roomId -> room data
 const chatRooms = new Map();
 
@@ -210,6 +213,8 @@ io.on('connection', (socket) => {
 
             sockets.set(socket.id, inviteCode);
             socketToDeviceKey.set(socket.id, effectiveDeviceKey);
+            // Keep explicit inviteCode→socketId map in sync
+            connectedDevices.set(inviteCode, socket.id);
 
             socket.emit('registered', {
                 success: true,
@@ -222,6 +227,25 @@ io.on('connection', (socket) => {
         } catch (error) {
             logger.error('Error in register handler', { error: error.message, socketId: socket.id });
             socket.emit('error', { message: 'Registration failed' });
+        }
+    });
+
+    // REGISTER-DEVICE — client sends this after receiving its invite code to ensure
+    // the inviteCode→socketId mapping is current (also called on every reconnect).
+    socket.on('register-device', (data) => {
+        try {
+            if (!data || typeof data !== 'object' || !data.inviteCode) return;
+            const { inviteCode } = data;
+            if (typeof inviteCode !== 'string' || inviteCode.length < 3) return;
+            // Only accept the invite code if this socket is already registered
+            // (i.e. the invite code matches what we stored for this socket)
+            const knownCode = sockets.get(socket.id);
+            if (knownCode && knownCode === inviteCode) {
+                connectedDevices.set(inviteCode, socket.id);
+                logger.debug('Device re-registered', { inviteCode, socketId: socket.id });
+            }
+        } catch (error) {
+            logger.error('Error in register-device handler', { error: error.message, socketId: socket.id });
         }
     });
 
@@ -312,6 +336,9 @@ io.on('connection', (socket) => {
                 socket.emit('user-not-found', { targetKey });
                 return;
             }
+
+            // Prefer the socketId from connectedDevices (most recently refreshed) for delivery
+            const targetSocketId = connectedDevices.get(targetKey) || target.socketId;
             
             // Add to pending invites
             if (!pendingInvites.has(targetKey)) {
@@ -320,14 +347,14 @@ io.on('connection', (socket) => {
             pendingInvites.get(targetKey).add(senderKey);
             
             // Send to target
-            io.to(target.socketId).emit('incoming-request', {
+            io.to(targetSocketId).emit('incoming-request', {
                 fromKey: senderKey,
                 fromName: users.get(senderKey)?.name || senderKey
             });
             
             socket.emit('request-sent', { targetKey });
             
-            logger.info('Connection request sent', { from: senderKey, to: targetKey });
+            logger.info('Connection request sent', { from: senderKey, to: targetKey, targetSocketId });
         } catch (error) {
             logger.error('Error in connection-request handler', { error: error.message, socketId: socket.id });
             socket.emit('error', { message: 'Connection request failed' });
@@ -652,6 +679,10 @@ io.on('connection', (socket) => {
                 }
                 sockets.delete(socket.id);
                 socketToDeviceKey.delete(socket.id);
+                // Remove from explicit connectedDevices map only if this socket is still current
+                if (connectedDevices.get(key) === socket.id) {
+                    connectedDevices.delete(key);
+                }
                 
                 // Clean up pending invites
                 pendingInvites.delete(key);
