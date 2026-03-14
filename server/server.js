@@ -361,6 +361,53 @@ io.on('connection', (socket) => {
         }
     });
 
+    // SEND REQUEST — primary invite flow (client emits this with both codes)
+    socket.on('send-request', (data) => {
+        try {
+            if (!data || typeof data !== 'object') return;
+
+            const { targetInviteCode, senderInviteCode } = data;
+
+            if (!targetInviteCode || !senderInviteCode) {
+                socket.emit('user-not-found', { targetKey: targetInviteCode });
+                return;
+            }
+
+            // Look up the target socket via the device registry
+            const targetSocketId = connectedDevices.get(targetInviteCode);
+
+            if (!targetSocketId) {
+                logger.info('Target device not online (send-request)', { targetInviteCode });
+                socket.emit('user-not-found', { targetKey: targetInviteCode });
+                return;
+            }
+
+            // Track pending invite so accept-request can verify it
+            if (!pendingInvites.has(targetInviteCode)) {
+                pendingInvites.set(targetInviteCode, new Set());
+            }
+            pendingInvites.get(targetInviteCode).add(senderInviteCode);
+
+            const fromName = users.get(senderInviteCode)?.name || senderInviteCode;
+
+            io.to(targetSocketId).emit('incoming-request', {
+                fromKey: senderInviteCode,
+                fromName,
+            });
+
+            socket.emit('request-sent', { targetKey: targetInviteCode });
+
+            logger.info('Request routed via send-request', {
+                from: senderInviteCode,
+                to: targetInviteCode,
+                targetSocketId,
+            });
+        } catch (error) {
+            logger.error('Error in send-request handler', { error: error.message, socketId: socket.id });
+            socket.emit('error', { message: 'Connection request failed' });
+        }
+    });
+
     // ACCEPT REQUEST
     socket.on('accept-request', (data) => {
         try {

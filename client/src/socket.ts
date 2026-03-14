@@ -4,6 +4,12 @@ class SocketService {
   private socket: Socket | null = null
   /** Stores the server-assigned invite code so it can be re-registered on reconnect */
   private inviteCode: string | null = null
+  /**
+   * Listeners registered before the socket is created (race condition guard).
+   * They are flushed onto the real socket the moment connect() creates it.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private pendingListeners: Array<{ event: string; callback: (...args: any[]) => void }> = []
 
   connect(deviceKey: string, deviceName: string): Promise<{ socket: Socket; username?: string; inviteCode?: string }> {
     return new Promise((resolve, reject) => {
@@ -19,6 +25,12 @@ class SocketService {
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
       })
+
+      // Flush any listeners that were registered before the socket was created
+      for (const { event, callback } of this.pendingListeners) {
+        this.socket.on(event, callback)
+      }
+      this.pendingListeners = []
 
       this.socket.on('connect', () => {
         // Register with device fingerprint on every (re)connect
@@ -59,11 +71,16 @@ class SocketService {
       this.socket.disconnect()
       this.socket = null
     }
+    this.pendingListeners = []
   }
 
   // Connection requests
   sendRequest(targetKey: string): void {
-    this.socket?.emit('connection-request', { targetKey })
+    if (!this.inviteCode) return
+    this.socket?.emit('send-request', {
+      targetInviteCode: targetKey,
+      senderInviteCode: this.inviteCode,
+    })
   }
 
   acceptRequest(fromKey: string): void {
@@ -122,15 +139,31 @@ class SocketService {
   // Event listeners
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on(event: string, callback: (...args: any[]) => void): void {
-    this.socket?.on(event, callback)
+    if (this.socket) {
+      this.socket.on(event, callback)
+    } else {
+      // Socket not yet created — buffer the listener and flush it in connect()
+      this.pendingListeners.push({ event, callback })
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   off(event: string, callback?: (...args: any[]) => void): void {
-    if (callback) {
-      this.socket?.off(event, callback)
+    if (this.socket) {
+      if (callback) {
+        this.socket.off(event, callback)
+      } else {
+        this.socket.off(event)
+      }
     } else {
-      this.socket?.off(event)
+      // Remove from pending buffer if not yet flushed
+      if (callback) {
+        this.pendingListeners = this.pendingListeners.filter(
+          (l) => !(l.event === event && l.callback === callback)
+        )
+      } else {
+        this.pendingListeners = this.pendingListeners.filter((l) => l.event !== event)
+      }
     }
   }
 
