@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 320" fill="none">
+  <defs>
+    <linearGradient id="bg4" x1="0" y1="0" x2="400" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="btnGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <filter id="shadow4" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#2563eb" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <rect width="400" height="320" fill="url(#bg4)" rx="20"/>
+
+  <!-- Background glow -->
+  <circle cx="200" cy="160" r="180" fill="#2563eb" fill-opacity="0.04"/>
+
+  <!-- Chat interface mockup -->
+  <rect x="60" y="36" width="280" height="240" rx="18" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow4)"/>
+
+  <!-- Header bar -->
+  <rect x="60" y="36" width="280" height="52" rx="18" fill="#0f172a"/>
+  <rect x="60" y="68" width="280" height="20" fill="#0f172a"/>
+  <!-- Avatar -->
+  <circle cx="90" cy="62" r="14" fill="#334155"/>
+  <circle cx="90" cy="56" r="7" fill="#475569"/>
+  <path d="M76 76c0-7.5 6-12 14-12s14 4.5 14 12" fill="#475569"/>
+  <!-- Online indicator -->
+  <circle cx="100" cy="72" r="4" fill="#22c55e" stroke="#0f172a" stroke-width="1.5"/>
+  <!-- Name -->
+  <text x="112" y="58" font-family="system-ui,sans-serif" font-size="10" fill="white" font-weight="600">Zion Chat</text>
+  <text x="112" y="72" font-family="system-ui,sans-serif" font-size="7.5" fill="#4ade80">● Online · Encrypted</text>
+  <!-- Action icons -->
+  <circle cx="298" cy="62" r="10" fill="#1e293b"/>
+  <rect x="294" y="57" width="8" height="5" rx="1.5" fill="#60a5fa"/>
+  <path d="M302 59l5-2v8l-5-2" fill="#60a5fa"/>
+  <circle cx="326" cy="62" r="10" fill="#1e293b"/>
+  <path d="M322 62c0-2 2-3.5 4-3.5s4 1.5 4 3.5c0 2-2 4-4 6.5-2-2.5-4-4.5-4-6.5z" fill="#60a5fa"/>
+
+  <!-- Messages area -->
+  <!-- Message 1 (received) -->
+  <rect x="74" y="100" width="148" height="28" rx="12" fill="#334155"/>
+  <rect x="74" y="100" width="148" height="28" rx="12" fill="#334155"/>
+  <text x="96" y="117" font-family="system-ui,sans-serif" font-size="8.5" fill="#e2e8f0">Hey, your invite worked! 🎉</text>
+  <text x="182" y="135" font-family="system-ui,sans-serif" font-size="6.5" fill="#64748b" text-anchor="end">12:00</text>
+
+  <!-- Message 2 (sent) -->
+  <rect x="178" y="144" width="144" height="28" rx="12" fill="#2563eb"/>
+  <text x="196" y="161" font-family="system-ui,sans-serif" font-size="8.5" fill="white">Great! Everything's private 🔐</text>
+  <text x="320" y="179" font-family="system-ui,sans-serif" font-size="6.5" fill="#93c5fd" text-anchor="end">12:01 ✓✓</text>
+
+  <!-- Message 3 (received) -->
+  <rect x="74" y="188" width="120" height="28" rx="12" fill="#334155"/>
+  <text x="96" y="205" font-family="system-ui,sans-serif" font-size="8.5" fill="#e2e8f0">No accounts needed 💡</text>
+  <text x="154" y="223" font-family="system-ui,sans-serif" font-size="6.5" fill="#64748b" text-anchor="end">12:02</text>
+
+  <!-- Input bar -->
+  <rect x="68" y="248" width="264" height="20" rx="10" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="90" y="261" font-family="system-ui,sans-serif" font-size="7.5" fill="#475569">Type a message…</text>
+  <!-- Send button -->
+  <circle cx="318" cy="258" r="10" fill="url(#btnGrad)"/>
+  <path d="M313 258l7-3-7-3v2.5l3 0.5-3 0.5z" fill="white"/>
+
+  <!-- Zion logo/label at top -->
+  <rect x="150" y="12" width="100" height="22" rx="11" fill="#1e293b" stroke="#2563eb" stroke-width="1"/>
+  <text x="200" y="26" font-family="system-ui,sans-serif" font-size="9" fill="#60a5fa" text-anchor="middle" font-weight="700">✦ Zion Chat</text>
+</svg>

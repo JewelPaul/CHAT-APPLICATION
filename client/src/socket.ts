@@ -2,6 +2,8 @@ import { io, Socket } from 'socket.io-client'
 
 class SocketService {
   private socket: Socket | null = null
+  /** Stores the server-assigned invite code so it can be re-registered on reconnect */
+  private inviteCode: string | null = null
 
   connect(deviceKey: string, deviceName: string): Promise<{ socket: Socket; username?: string; inviteCode?: string }> {
     return new Promise((resolve, reject) => {
@@ -19,11 +21,22 @@ class SocketService {
       })
 
       this.socket.on('connect', () => {
-        // Register with invite code on connection
+        // Register with device fingerprint on every (re)connect
         this.socket?.emit('register', { deviceKey, deviceName })
+        // If we already know the invite code, also send explicit register-device
+        // so the server mapping is refreshed immediately without waiting for DB lookup
+        if (this.inviteCode) {
+          this.socket?.emit('register-device', { inviteCode: this.inviteCode })
+        }
       })
 
       this.socket.on('registered', (data: { success: boolean; deviceKey: string; username?: string; inviteCode?: string }) => {
+        // Cache the server-assigned invite code for use on reconnect
+        if (data?.inviteCode) {
+          this.inviteCode = data.inviteCode
+          // Also send register-device to ensure inviteCode→socketId mapping is current
+          this.socket?.emit('register-device', { inviteCode: data.inviteCode })
+        }
         resolve({ socket: this.socket!, username: data?.username, inviteCode: data?.inviteCode })
       })
 

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 320" fill="none">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="400" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <filter id="shadow3" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#f59e0b" flood-opacity="0.2"/>
+    </filter>
+    <filter id="shadowBlue" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#2563eb" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <rect width="400" height="320" fill="url(#bg3)" rx="20"/>
+
+  <!-- Background glow -->
+  <circle cx="120" cy="100" r="100" fill="#f59e0b" fill-opacity="0.04"/>
+  <circle cx="300" cy="220" r="80" fill="#2563eb" fill-opacity="0.04"/>
+
+  <!-- Invite code card (top, sender) -->
+  <rect x="80" y="44" width="240" height="90" rx="14" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow3)"/>
+  <text x="200" y="68" font-family="system-ui,sans-serif" font-size="9" fill="#94a3b8" text-anchor="middle" font-weight="600" letter-spacing="2">YOUR INVITE CODE</text>
+  <!-- Code display box -->
+  <rect x="96" y="74" width="208" height="40" rx="10" fill="#0f172a" stroke="#475569" stroke-width="1"/>
+  <text x="200" y="99" font-family="ui-monospace,monospace" font-size="20" fill="#f59e0b" text-anchor="middle" font-weight="700" letter-spacing="4">K8F2·QP9A</text>
+  <!-- Copy button -->
+  <rect x="96" y="122" width="92" height="7" rx="3.5" fill="#334155"/>
+  <rect x="212" y="122" width="92" height="7" rx="3.5" fill="#2563eb" fill-opacity="0.8"/>
+  <text x="258" y="127.5" font-family="system-ui,sans-serif" font-size="5" fill="white" text-anchor="middle">Copy</text>
+
+  <!-- Arrow down -->
+  <line x1="200" y1="140" x2="200" y2="168" stroke="#475569" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <path d="M194 164l6 8 6-8" stroke="#475569" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Connection request bubble -->
+  <rect x="60" y="176" width="280" height="68" rx="14" fill="#1e293b" stroke="#2563eb" stroke-width="1.5" filter="url(#shadowBlue)"/>
+  <!-- Request from indicator -->
+  <circle cx="88" cy="210" r="16" fill="#334155"/>
+  <circle cx="88" cy="204" r="7" fill="#475569"/>
+  <path d="M72 226c0-9 7.5-14 16-14s16 5 16 14" fill="#475569"/>
+  <!-- Text -->
+  <text x="116" y="200" font-family="system-ui,sans-serif" font-size="9" fill="#94a3b8">Connection Request from</text>
+  <text x="116" y="215" font-family="ui-monospace,monospace" font-size="10" fill="#60a5fa" font-weight="600">K8F2-QP9A-7ZXM</text>
+  <!-- Accept / Decline -->
+  <rect x="116" y="223" width="56" height="14" rx="7" fill="#2563eb"/>
+  <text x="144" y="232.5" font-family="system-ui,sans-serif" font-size="7" fill="white" text-anchor="middle" font-weight="600">Accept</text>
+  <rect x="178" y="223" width="56" height="14" rx="7" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+  <text x="206" y="232.5" font-family="system-ui,sans-serif" font-size="7" fill="#94a3b8" text-anchor="middle">Decline</text>
+
+  <!-- Connected state (bottom) -->
+  <rect x="100" y="256" width="200" height="40" rx="12" fill="#0f172a" stroke="#22c55e" stroke-width="1.5"/>
+  <circle cx="126" cy="276" r="8" fill="#22c55e" fill-opacity="0.2"/>
+  <circle cx="126" cy="276" r="4" fill="#22c55e"/>
+  <text x="200" y="281" font-family="system-ui,sans-serif" font-size="9" fill="#4ade80" text-anchor="middle" font-weight="600">Securely Connected ✓</text>
+
+  <!-- No phone badge -->
+  <rect x="112" y="16" width="176" height="22" rx="11" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+  <text x="200" y="30" font-family="system-ui,sans-serif" font-size="8" fill="#94a3b8" text-anchor="middle">No phone number required</text>
+</svg>
