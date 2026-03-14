@@ -34,12 +34,12 @@
   }
 
   .dark {
-    /* Dark Mode — Minimal Neutral */
-    --bg-primary: #0F172A;
-    --bg-secondary: #111827;
-    --bg-hover: #1E2535;
-    --bg-card: #111827;
-    --bg-tertiary: #1F2937;
+    /* Dark Mode — per design spec (#0f172a, #1e293b, #2563eb) */
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-hover: #263044;
+    --bg-card: #1e293b;
+    --bg-tertiary: #2d3f55;
 
     --text-primary: #F3F4F6;
     --text-secondary: #9CA3AF;
@@ -283,6 +283,15 @@
 
 .message-enter {
   animation: message-enter 0.15s ease-out;
+}
+
+@keyframes slide-enter {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-enter {
+  animation: slide-enter 0.3s ease-out both;
 }
 
 /* Smooth scrolling */
