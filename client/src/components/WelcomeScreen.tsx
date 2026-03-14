@@ -1,46 +1,34 @@
-import { useState, useEffect, useRef } from 'react'
-import { Copy, Check, Send, Shield, Trash2, Lock, Users, AlertTriangle, Edit2, X } from 'lucide-react'
+import { useState } from 'react'
+import { Copy, Check, Send, Shield, Trash2, Lock, Users, AlertTriangle, Share2 } from 'lucide-react'
 import { Logo } from './Logo'
 import { copyToClipboard } from '../utils'
 import { useNotifications } from './NotificationProvider'
-import { isValidUsername } from '../utils/deviceKey'
-import socketService from '../socket'
 import type { ConnectionStatus } from '../types'
 
 interface WelcomeScreenProps {
   inviteCode: string
-  username: string
+  displayName: string
+  username?: string
   connectionStatus: ConnectionStatus
   onSendConnectionRequest: (code: string) => void
   onInviteCodeChange?: (newCode: string) => void
-  onUsernameChange?: (newUsername: string) => void
+  onDisplayNameChange?: (name: string) => void
+  onUsernameChange?: (username: string) => void
 }
 
-export function WelcomeScreen({ inviteCode, username, connectionStatus, onSendConnectionRequest, onUsernameChange }: WelcomeScreenProps) {
+export function WelcomeScreen({
+  inviteCode,
+  displayName,
+  connectionStatus,
+  onSendConnectionRequest,
+  onDisplayNameChange,
+}: WelcomeScreenProps) {
   const [connectCode, setConnectCode] = useState('')
   const [copied, setCopied] = useState(false)
-
-  // Username editing state
-  const [isEditingUsername, setIsEditingUsername] = useState(false)
-  const [editUsernameValue, setEditUsernameValue] = useState('')
-  const [editUsernameError, setEditUsernameError] = useState('')
-  const [isSavingUsername, setIsSavingUsername] = useState(false)
-  const [usernameAvailability, setUsernameAvailability] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
-  const usernameCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [editName, setEditName] = useState(displayName)
+  const [nameSaved, setNameSaved] = useState(false)
 
   const { addNotification } = useNotifications()
-  // Refs to track pending username listeners so they can be removed on unmount
-  const pendingUsernameUpdatedRef = useRef<((...args: unknown[]) => void) | null>(null)
-  const pendingUsernameErrorRef = useRef<((...args: unknown[]) => void) | null>(null)
-
-  // Clean up any dangling socket listeners on unmount
-  useEffect(() => {
-    return () => {
-      if (pendingUsernameUpdatedRef.current) socketService.off('username-updated', pendingUsernameUpdatedRef.current)
-      if (pendingUsernameErrorRef.current) socketService.off('username-error', pendingUsernameErrorRef.current)
-      if (usernameCheckTimerRef.current) clearTimeout(usernameCheckTimerRef.current)
-    }
-  }, [])
 
   const handleCopyCode = async () => {
     const success = await copyToClipboard(inviteCode)
@@ -50,6 +38,22 @@ export function WelcomeScreen({ inviteCode, username, connectionStatus, onSendCo
       addNotification('success', 'Invite code copied!')
     } else {
       addNotification('error', 'Failed to copy code')
+    }
+  }
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Zion Chat Invite',
+          text: `Connect with me on Zion Chat! My invite code: ${inviteCode}`,
+        })
+      } catch {
+        // User cancelled share — fall back to copy
+        handleCopyCode()
+      }
+    } else {
+      handleCopyCode()
     }
   }
 
@@ -71,129 +75,30 @@ export function WelcomeScreen({ inviteCode, username, connectionStatus, onSendCo
     if (e.key === 'Enter') handleSendRequest()
   }
 
-  // Username editing handlers
-  const handleStartEditUsername = () => {
-    setEditUsernameValue(username)
-    setEditUsernameError('')
-    setUsernameAvailability('idle')
-    setIsEditingUsername(true)
+  const handleSaveName = () => {
+    const name = editName.trim()
+    onDisplayNameChange?.(name)
+    setNameSaved(true)
+    setTimeout(() => setNameSaved(false), 2000)
+    addNotification('success', name ? 'Display name saved' : 'Display name cleared')
   }
-
-  const handleCancelEditUsername = () => {
-    setIsEditingUsername(false)
-    setEditUsernameValue('')
-    setEditUsernameError('')
-    setUsernameAvailability('idle')
-    if (usernameCheckTimerRef.current) clearTimeout(usernameCheckTimerRef.current)
-  }
-
-  const handleEditUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setEditUsernameValue(value)
-    setEditUsernameError('')
-
-    if (usernameCheckTimerRef.current) clearTimeout(usernameCheckTimerRef.current)
-
-    if (!value.trim() || value.trim() === username) {
-      setUsernameAvailability('idle')
-      return
-    }
-
-    if (!isValidUsername(value)) {
-      setUsernameAvailability('idle')
-      return
-    }
-
-    // Debounce the availability check
-    setUsernameAvailability('checking')
-    usernameCheckTimerRef.current = setTimeout(async () => {
-      try {
-        const params = new URLSearchParams({ username: value.trim(), deviceKey: inviteCode })
-        const resp = await fetch(`/api/username/check?${params}`)
-        const json = await resp.json()
-        setUsernameAvailability(json.available ? 'available' : 'taken')
-      } catch {
-        setUsernameAvailability('idle')
-      }
-    }, 400)
-  }
-
-  const handleSaveUsername = async () => {
-    const newUsername = editUsernameValue.trim()
-    if (!newUsername) {
-      setEditUsernameError('Username cannot be empty')
-      return
-    }
-    if (!isValidUsername(newUsername)) {
-      setEditUsernameError('4–40 characters: letters, numbers, _ . -')
-      return
-    }
-    if (newUsername === username) {
-      setIsEditingUsername(false)
-      return
-    }
-
-    setIsSavingUsername(true)
-    let done = false
-
-    const onUpdated = (data: { username: string }) => {
-      if (done) return
-      done = true
-      pendingUsernameUpdatedRef.current = null
-      pendingUsernameErrorRef.current = null
-      onUsernameChange?.(data.username)
-      setIsEditingUsername(false)
-      setIsSavingUsername(false)
-      setUsernameAvailability('idle')
-      addNotification('success', 'Username updated')
-      socketService.off('username-updated', onUpdated)
-      socketService.off('username-error', onError)
-    }
-
-    const onError = (data: { message: string }) => {
-      if (done) return
-      done = true
-      pendingUsernameUpdatedRef.current = null
-      pendingUsernameErrorRef.current = null
-      setEditUsernameError(data.message || 'Failed to update username')
-      setIsSavingUsername(false)
-      socketService.off('username-updated', onUpdated)
-      socketService.off('username-error', onError)
-    }
-
-    pendingUsernameUpdatedRef.current = onUpdated as (...args: unknown[]) => void
-    pendingUsernameErrorRef.current = onError as (...args: unknown[]) => void
-    socketService.on('username-updated', onUpdated)
-    socketService.on('username-error', onError)
-    socketService.emit('update-username', { username: newUsername })
-  }
-
-  const deviceLabel = (() => {
-    const ua = navigator.userAgent
-    if (ua.includes('iPhone')) return 'iPhone'
-    if (ua.includes('iPad')) return 'iPad'
-    if (ua.includes('Android')) return 'Android'
-    if (ua.includes('Mac')) return 'Mac'
-    if (ua.includes('Windows')) return 'Windows'
-    return 'This Device'
-  })()
 
   const isConnected = connectionStatus === 'connected'
 
   return (
     <div className="h-screen overflow-hidden bg-[var(--bg-primary)] flex flex-col">
-      {/* Inner scroll container for mobile */}
+      {/* Inner scroll container */}
       <div className="flex-1 overflow-y-auto">
         <div className="min-h-full flex flex-col items-center justify-center p-6 py-8">
           <div className="w-full max-w-sm space-y-4">
 
-            {/* Header: Logo + Status */}
+            {/* Header */}
             <div className="text-center space-y-3">
               <div className="flex justify-center">
                 <Logo size="large" />
               </div>
 
-              {/* Connection status */}
+              {/* Connection status badge */}
               <div className="flex justify-center">
                 {connectionStatus === 'connected' && (
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-2.5 py-1 rounded-full">
@@ -229,85 +134,62 @@ export function WelcomeScreen({ inviteCode, username, connectionStatus, onSendCo
               </div>
             </div>
 
-            {/* Username Card */}
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 shadow-sm space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Your Username</span>
-                <span className="text-xs text-[var(--text-muted)]">{deviceLabel}</span>
-              </div>
-
-              {isEditingUsername ? (
-                <div className="space-y-2">
-                  <input
-                    className="input-field text-center text-lg font-bold"
-                    value={editUsernameValue}
-                    onChange={handleEditUsernameChange}
-                    onKeyDown={e => e.key === 'Enter' && handleSaveUsername()}
-                    maxLength={40}
-                    placeholder="your_username"
-                    autoFocus
-                    disabled={isSavingUsername}
-                  />
-                  {/* Availability feedback */}
-                  {usernameAvailability === 'checking' && (
-                    <p className="text-xs text-[var(--text-muted)] text-center">Checking availability…</p>
-                  )}
-                  {usernameAvailability === 'available' && (
-                    <p className="text-xs text-green-600 dark:text-green-400 text-center">✓ Username available</p>
-                  )}
-                  {usernameAvailability === 'taken' && (
-                    <p className="text-xs text-[var(--error)] text-center">✗ Username already taken</p>
-                  )}
-                  {editUsernameError && (
-                    <p className="text-xs text-[var(--error)] text-center">{editUsernameError}</p>
-                  )}
-                  <p className="text-xs text-[var(--text-muted)] text-center">4–40 chars: letters, numbers, _ . -</p>
-                  <div className="flex gap-2">
-                    <button onClick={handleCancelEditUsername} disabled={isSavingUsername} className="btn btn-secondary flex-1 text-sm py-1.5">
-                      <X className="w-3.5 h-3.5" /> Cancel
-                    </button>
-                    <button onClick={handleSaveUsername} disabled={isSavingUsername || usernameAvailability === 'taken' || usernameAvailability === 'checking'} className="btn btn-primary flex-1 text-sm py-1.5">
-                      {isSavingUsername ? 'Saving…' : 'Save'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-3 text-center">
-                    <span className="text-xl font-bold text-[var(--accent)]">{username || '…'}</span>
-                  </div>
-                  <button
-                    onClick={handleStartEditUsername}
-                    title="Edit username"
-                    className="btn btn-secondary p-2.5 rounded-xl"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-              <p className="text-xs text-[var(--text-muted)] text-center">Your unique identity — globally reserved just for you</p>
-            </div>
-
             {/* Invite Code Card */}
             <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Your Invite Code</span>
-                <span className="text-xs text-[var(--text-muted)]">{deviceLabel}</span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-3 text-center">
-                  <span className="font-mono text-xl font-bold text-[var(--accent)] tracking-widest">{inviteCode}</span>
-                </div>
+              {/* Code display */}
+              <div className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-4 text-center">
+                <span className="font-mono text-2xl font-bold text-[var(--accent)] tracking-widest select-all">
+                  {inviteCode || '…'}
+                </span>
+              </div>
+
+              {/* Copy + Share buttons */}
+              <div className="flex gap-2">
                 <button
                   onClick={handleCopyCode}
-                  title="Copy invite code"
-                  className="btn btn-secondary p-2.5 rounded-xl"
+                  className="btn btn-secondary flex-1 gap-2 rounded-xl py-2.5"
                 >
                   {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+                <button
+                  onClick={handleShare}
+                  className="btn btn-secondary flex-1 gap-2 rounded-xl py-2.5"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share
                 </button>
               </div>
+
               <p className="text-xs text-[var(--text-muted)] text-center">Share this code so others can connect with you</p>
+            </div>
+
+            {/* Display Name Card */}
+            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 shadow-sm space-y-3">
+              <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Display Name</span>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveName()}
+                  placeholder="Optional — e.g. Alice"
+                  className="input-field flex-1"
+                  maxLength={50}
+                />
+                <button
+                  onClick={handleSaveName}
+                  className={`btn px-4 rounded-xl ${nameSaved ? 'btn-secondary text-green-500' : 'btn-primary'}`}
+                >
+                  {nameSaved ? <Check className="w-4 h-4" /> : 'Save'}
+                </button>
+              </div>
+              <p className="text-xs text-[var(--text-muted)]">Optional. Not unique. Stored locally on your device only.</p>
             </div>
 
             {/* Join Chat Card */}
@@ -321,7 +203,7 @@ export function WelcomeScreen({ inviteCode, username, connectionStatus, onSendCo
                   onKeyDown={handleKeyDown}
                   placeholder="Enter invite code…"
                   className="input-field flex-1 font-mono uppercase tracking-widest"
-                  maxLength={10}
+                  maxLength={14}
                   disabled={!isConnected}
                 />
                 <button

@@ -421,16 +421,35 @@ class ChatDatabase {
   }
 
   /**
-   * Generate a unique ZION-XXXX invite code and permanently assign it to the device key.
+   * Generate a unique invite code in XXXX-XXXX-XXXX format and permanently assign it to
+   * the device key.  Uses cryptographically random uppercase alphanumeric characters.
    * The device key row must already exist (i.e. a username must have been assigned first).
-   * Retries up to 20 times to avoid collisions.
+   * Retries up to 30 times to avoid collisions.
    */
   generateAndAssignInviteCode(deviceKey) {
-    const maxAttempts = 20;
+    const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const n = CHARS.length; // 36
+    // Rejection-sampling threshold to avoid modulo bias (256 % 36 = 4 → reject bytes >= 252)
+    const threshold = 256 - (256 % n); // 252
+    const maxAttempts = 30;
+
+    const generateCode = () => {
+      const chars = [];
+      const crypto = require('crypto');
+      while (chars.length < 12) {
+        const remaining = 12 - chars.length;
+        // Request extra bytes to account for rejection (about 4/256 ≈ 1.5% rejection rate)
+        const buf = crypto.randomBytes(remaining * 2);
+        for (const b of buf) {
+          if (chars.length >= 12) break;
+          if (b < threshold) chars.push(CHARS[b % n]);
+        }
+      }
+      return `${chars.slice(0, 4).join('')}-${chars.slice(4, 8).join('')}-${chars.slice(8, 12).join('')}`;
+    };
 
     for (let i = 0; i < maxAttempts; i++) {
-      const suffix = Math.floor(1000 + Math.random() * 9000); // random 4-digit number
-      const candidate = `ZION-${suffix}`;
+      const candidate = generateCode();
 
       if (this.isInviteCodeAvailable(candidate)) {
         const stmt = this.db.prepare(
@@ -450,8 +469,9 @@ class ChatDatabase {
       }
     }
 
-    // Fallback: derive a 4-digit suffix from the current timestamp (last 4 digits)
-    const fallback = `ZION-${String(Date.now()).slice(-4)}`;
+    // Fallback: use timestamp-based suffix (should never happen in practice)
+    const ts = String(Date.now());
+    const fallback = `${ts.slice(-4).toUpperCase()}-${ts.slice(-8, -4).toUpperCase()}-ZION`;
     const stmt = this.db.prepare(
       'UPDATE device_usernames SET invite_code = ?, updated_at = CURRENT_TIMESTAMP WHERE device_key = ?'
     );

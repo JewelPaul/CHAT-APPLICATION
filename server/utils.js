@@ -37,20 +37,28 @@ function validateUserCode(code) {
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) {
     return true;
   }
-  // Accept server-generated invite code format: ZION-XXXX (e.g. ZION-4832)
+  // Accept new canonical invite code format: XXXX-XXXX-XXXX (e.g. K8F2-QP9A-7ZXM)
+  if (/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(trimmed)) {
+    return true;
+  }
+  // Accept legacy server-generated invite code format: ZION-XXXX (e.g. ZION-4832)
   if (/^ZION-[0-9]{4}$/.test(trimmed)) {
     return true;
   }
-  // Accept new 10-char dash-separated format: XXXXX-XXXX (e.g. JWELL-0291)
+  // Accept legacy 10-char dash-separated format: XXXXX-XXXX (e.g. JWELL-0291)
   if (/^[A-Z0-9]{5}-[A-Z0-9]{4}$/.test(trimmed)) {
+    return true;
+  }
+  // Accept device fingerprint: 32-char lowercase hex (SHA-256 truncated to 128 bits)
+  if (/^[0-9a-f]{32}$/.test(trimmed)) {
     return true;
   }
   // Accept legacy 6-char uppercase alphanumeric invite codes
   if (/^[A-Z0-9]{6}$/.test(trimmed)) {
     return true;
   }
-  // Also accept general alphanumeric identifiers (3–50 chars) for compatibility
-  return trimmed.length >= 3 && trimmed.length <= 50 && /^[a-zA-Z0-9_-]+$/.test(trimmed);
+  // Also accept general alphanumeric identifiers (3–64 chars) for compatibility
+  return trimmed.length >= 3 && trimmed.length <= 64 && /^[a-zA-Z0-9_-]+$/.test(trimmed);
 }
 
 /**

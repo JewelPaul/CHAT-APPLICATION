@@ -6,7 +6,16 @@ import { IncomingRequestModal } from './components/IncomingRequestModal'
 import { CallInterface } from './components/CallInterface'
 import { MainChatLayout } from './components/MainChatLayout'
 import { WelcomeScreen } from './components/WelcomeScreen'
-import { getOrCreateInviteCode, getOrCreateDeviceId, saveInviteCode, getStoredUsername, saveUsername } from './utils/deviceKey'
+import { OnboardingSlideshow } from './components/OnboardingSlideshow'
+import {
+  getOrCreateInviteCode,
+  getOrCreateDeviceFingerprint,
+  saveInviteCode,
+  getStoredUsername,
+  saveUsername,
+  getDisplayName,
+  saveDisplayName,
+} from './utils/deviceKey'
 import { useWebRTC } from './hooks/useWebRTC'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import socketService from './socket'
@@ -14,12 +23,14 @@ import { useNotifications } from './components/NotificationProvider'
 import type { User, CallType, ConnectionStatus } from './types'
 import type { Contact } from './db'
 
+const ONBOARDING_KEY = 'zion_onboarding_completed'
+
 function ChatApp() {
-  // Permanent internal device ID — used for server registration (never shown to users)
-  const deviceId = useState(() => getOrCreateDeviceId())[0]
   // Persistent invite code — survives page reload, stored in localStorage
   const [inviteCode, setInviteCode] = useState(() => getOrCreateInviteCode())
-  // Username — assigned by server on first visit, editable afterwards
+  // Display name — locally stored, not unique
+  const [displayName, setDisplayName] = useState(() => getDisplayName())
+  // Username — server-assigned, kept for internal use
   const [username, setUsername] = useState(() => getStoredUsername())
   const [isLoading, setIsLoading] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting')
@@ -32,20 +43,23 @@ function ChatApp() {
 
   const { addNotification } = useNotifications()
 
-  // Initialize socket connection once using the stable deviceId
+  // Initialize socket connection using the stable device fingerprint
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Send the stable UUID deviceId to the server so it can look up (or create)
-        // the permanent invite code and username for this device.
-        const result = await socketService.connect(deviceId, deviceId)
+        // Compute a stable device fingerprint from hardware/browser characteristics.
+        // The same device will produce the same fingerprint across all browsers.
+        const fingerprint = await getOrCreateDeviceFingerprint()
+        // Send fingerprint as deviceKey; display name as the human-readable name
+        const currentDisplayName = getDisplayName()
+        const result = await socketService.connect(fingerprint, currentDisplayName || fingerprint)
         setConnectionStatus('connected')
         // Save the server-assigned username if we don't already have one
         if (result.username) {
           saveUsername(result.username)
           setUsername(result.username)
         }
-        // Adopt the server-assigned permanent invite code (ZION-XXXX format)
+        // Adopt the server-assigned permanent invite code (XXXX-XXXX-XXXX format)
         if (result.inviteCode) {
           saveInviteCode(result.inviteCode)
           setInviteCode(result.inviteCode)
@@ -63,7 +77,7 @@ function ChatApp() {
     return () => {
       socketService.disconnect()
     }
-  }, [addNotification, deviceId])
+  }, [addNotification])
 
   // Switch to chat layout when a connection is established
   useEffect(() => {
@@ -95,6 +109,11 @@ function ChatApp() {
   const handleInviteCodeChange = useCallback((newCode: string) => {
     saveInviteCode(newCode)
     setInviteCode(newCode)
+  }, [])
+
+  const handleDisplayNameChange = useCallback((newName: string) => {
+    saveDisplayName(newName)
+    setDisplayName(newName)
   }, [])
 
   const handleUsernameChange = useCallback((newUsername: string) => {
@@ -147,8 +166,6 @@ function ChatApp() {
   } = useWebRTC(activeContact)
 
   // Persistent remote audio element — always in the DOM so srcObject is never lost
-  // on state transitions. Audio-only calls route remote audio here; video calls use
-  // the <video> element (which carries its own audio track).
   const remoteAudioRef = useRef<HTMLAudioElement>(null)
   useEffect(() => {
     if (!remoteAudioRef.current) return
@@ -196,7 +213,6 @@ function ChatApp() {
     }
   }, [activeContact, initiateCall, addNotification])
 
-  // Accept incoming call (callee uses hook's internal ringing state — no params needed)
   const handleAcceptCall = async () => {
     try {
       await acceptCall()
@@ -239,10 +255,12 @@ function ChatApp() {
       {!activeSession && (
         <WelcomeScreen
           inviteCode={inviteCode}
+          displayName={displayName}
           username={username}
           connectionStatus={connectionStatus}
           onSendConnectionRequest={handleSendConnectionRequest}
           onInviteCodeChange={handleInviteCodeChange}
+          onDisplayNameChange={handleDisplayNameChange}
           onUsernameChange={handleUsernameChange}
         />
       )}
@@ -297,10 +315,31 @@ function ChatApp() {
 }
 
 function App() {
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try {
+      return localStorage.getItem(ONBOARDING_KEY) !== 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const handleOnboardingComplete = useCallback(() => {
+    try {
+      localStorage.setItem(ONBOARDING_KEY, 'true')
+    } catch {
+      // ignore
+    }
+    setShowOnboarding(false)
+  }, [])
+
   return (
     <ThemeProvider>
       <NotificationProvider>
-        <ChatApp />
+        {showOnboarding ? (
+          <OnboardingSlideshow onComplete={handleOnboardingComplete} />
+        ) : (
+          <ChatApp />
+        )}
       </NotificationProvider>
     </ThemeProvider>
   )
