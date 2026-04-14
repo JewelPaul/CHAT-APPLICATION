@@ -234,9 +234,9 @@ io.on('connection', (socket) => {
     // the inviteCode→socketId mapping is current (also called on every reconnect).
     socket.on('register-device', (data) => {
         try {
-            if (!data || typeof data !== 'object' || !data.inviteCode) return;
+            if (!data || typeof data !== 'object' || !data.inviteCode) {return;}
             const { inviteCode } = data;
-            if (typeof inviteCode !== 'string' || inviteCode.length < 3) return;
+            if (typeof inviteCode !== 'string' || inviteCode.length < 3) {return;}
             // Only accept the invite code if this socket is already registered
             // (i.e. the invite code matches what we stored for this socket)
             const knownCode = sockets.get(socket.id);
@@ -364,7 +364,7 @@ io.on('connection', (socket) => {
     // SEND REQUEST — primary invite flow (client emits this with both codes)
     socket.on('send-request', (data) => {
         try {
-            if (!data || typeof data !== 'object') return;
+            if (!data || typeof data !== 'object') {return;}
 
             const { targetInviteCode, senderInviteCode } = data;
 

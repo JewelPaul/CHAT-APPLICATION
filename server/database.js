@@ -441,8 +441,8 @@ class ChatDatabase {
         // Request extra bytes to account for rejection (about 4/256 ≈ 1.5% rejection rate)
         const buf = crypto.randomBytes(remaining * 2);
         for (const b of buf) {
-          if (chars.length >= 12) break;
-          if (b < threshold) chars.push(CHARS[b % n]);
+          if (chars.length >= 12) {break;}
+          if (b < threshold) {chars.push(CHARS[b % n]);}
         }
       }
       return `${chars.slice(0, 4).join('')}-${chars.slice(4, 8).join('')}-${chars.slice(8, 12).join('')}`;
