@@ -1,12 +1,12 @@
 import { RoundedBox, RenderTexture, Text } from '@react-three/drei'
 
 const logLines = [
-  '$ node hermes-agent.mjs',
-  '[hermes] bridge online @ :7777',
-  '[gods-eye] telegram sync: healthy',
-  '[watcher] websocket listeners: 12',
-  '[queue] encrypted payload relays: 64',
-  '[vacuum] anti-gravity field stabilized',
+  '$ npm run dev',
+  '[zion] realtime gateway: online',
+  '[socket] encrypted channel: healthy',
+  '[presence] peers synced: 12',
+  '[relay] invite route latency: 19ms',
+  '[monitor] secure session stream active',
 ]
 
 export function Monitor() {

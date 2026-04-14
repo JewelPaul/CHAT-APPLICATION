@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import { RigidBody, type RapierRigidBody } from '@react-three/rapier'
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import type { ReactNode } from 'react'
 import * as THREE from 'three'
 
@@ -16,12 +16,6 @@ interface FloatingRigidProps {
   colliders?: 'ball' | 'cuboid' | 'hull' | false
 }
 
-const objectPosition = new THREE.Vector3()
-const projectedPointer = new THREE.Vector3()
-const pointerDirection = new THREE.Vector3()
-const pointerOnPlane = new THREE.Vector3()
-const repelVector = new THREE.Vector3()
-
 export function FloatingRigid({
   children,
   position,
@@ -35,28 +29,37 @@ export function FloatingRigid({
 }: FloatingRigidProps) {
   const body = useRef<RapierRigidBody | null>(null)
 
+  const vectors = useMemo(() => ({
+    objectPosition: new THREE.Vector3(),
+    projectedPointer: new THREE.Vector3(),
+    pointerDirection: new THREE.Vector3(),
+    pointerOnPlane: new THREE.Vector3(),
+    repelVector: new THREE.Vector3(),
+  }), [])
+
   useFrame(({ pointer, camera }, delta) => {
     if (!body.current) return
 
     const translation = body.current.translation()
-    objectPosition.set(translation.x, translation.y, translation.z)
+    vectors.objectPosition.set(translation.x, translation.y, translation.z)
 
-    projectedPointer.set(pointer.x, pointer.y, 0.2).unproject(camera)
-    pointerDirection.copy(projectedPointer).sub(camera.position).normalize()
+    vectors.projectedPointer.set(pointer.x, pointer.y, 0.2).unproject(camera)
+    vectors.pointerDirection.copy(vectors.projectedPointer).sub(camera.position).normalize()
 
-    if (Math.abs(pointerDirection.z) < 0.0001) return
+    // Small epsilon prevents unstable pointer-plane intersections when the ray is nearly parallel to the plane.
+    if (Math.abs(vectors.pointerDirection.z) < 0.0001) return
 
-    const distanceToObjectPlane = (objectPosition.z - camera.position.z) / pointerDirection.z
+    const distanceToObjectPlane = (vectors.objectPosition.z - camera.position.z) / vectors.pointerDirection.z
     if (distanceToObjectPlane <= 0) return
 
-    pointerOnPlane.copy(camera.position).addScaledVector(pointerDirection, distanceToObjectPlane)
-    repelVector.copy(objectPosition).sub(pointerOnPlane)
+    vectors.pointerOnPlane.copy(camera.position).addScaledVector(vectors.pointerDirection, distanceToObjectPlane)
+    vectors.repelVector.copy(vectors.objectPosition).sub(vectors.pointerOnPlane)
 
-    const distance = repelVector.length()
+    const distance = vectors.repelVector.length()
     if (distance > repelRadius || distance < 0.0001) return
 
     const impulse = (1 - distance / repelRadius) * repelStrength * delta * 60
-    body.current.applyImpulse(repelVector.normalize().multiplyScalar(impulse), true)
+    body.current.applyImpulse(vectors.repelVector.normalize().multiplyScalar(impulse), true)
   })
 
   return (

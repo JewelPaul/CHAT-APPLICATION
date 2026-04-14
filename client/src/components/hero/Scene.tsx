@@ -10,16 +10,23 @@ import { Telephone } from './Telephone'
 import { Keyboard, Mouse, Notebook } from './CreatorTools'
 import { BrandingText } from './BrandingText'
 
+// Slight right offset and deep Z distance keep the left monitor composition readable while preserving depth.
+const CAMERA_POSITION: [number, number, number] = [0.25, 0.15, 8.8]
+// Narrow cinematic FOV avoids distortion and keeps the scene feeling premium and product-focused.
+const CAMERA_FOV = 34
+// Keep reflections subtle so the void stays dark while metallic surfaces still feel physically grounded.
+const ENVIRONMENT_INTENSITY = 0.16
+
 export function HeroScene() {
   return (
     <Canvas
-      camera={{ position: [0.25, 0.15, 8.8], fov: 34 }}
+      camera={{ position: CAMERA_POSITION, fov: CAMERA_FOV }}
       gl={{ antialias: true, alpha: false }}
       dpr={[1, 2]}
     >
       <color attach="background" args={['#000000']} />
 
-      <Environment preset="night" environmentIntensity={0.16} />
+      <Environment preset="night" environmentIntensity={ENVIRONMENT_INTENSITY} />
 
       <Physics gravity={[0, 0, 0]}>
         <Float speed={0.25} rotationIntensity={0.12} floatIntensity={0.18}>
